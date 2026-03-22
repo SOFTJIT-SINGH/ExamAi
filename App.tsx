@@ -1,23 +1,44 @@
-// This import is strictly required for NativeWind v4 to inject your Tailwind classes
+// Strictly required for NativeWind v4
 import './global.css'; 
 
 import React from 'react';
-import { View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+
+// Screen Imports
 import ActiveExamScreen from './screens/ActiveExamScreen';
+
+// Type definitions for our Route params
+export type RootStackParamList = {
+  ActiveExam: undefined;
+  // Future screens will go here:
+  // Dashboard: undefined;
+  // ExamResults: { score: number };
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
-    <View className="flex-1 bg-slate-50">
-      {/* Ensures the device status bar (battery, time) is visible and readable 
-        against our light slate background.
-      */}
+    <>
       <StatusBar style="dark" translucent={true} />
-      
-      {/* Mounting our Phase 1 Active Exam Interface.
-        Since Zustand manages state globally, we don't need to wrap this in a Provider.
-      */}
-      <ActiveExamScreen />
-    </View>
+      <NavigationContainer>
+        <Stack.Navigator 
+          initialRouteName="ActiveExam"
+          screenOptions={{ 
+            headerShown: false, // We built our own custom header in the screen
+            animation: 'slide_from_right'
+          }}
+        >
+          <Stack.Screen 
+            name="ActiveExam" 
+            component={ActiveExamScreen} 
+            // Crucial for exams: prevent iOS swipe-back gesture
+            options={{ gestureEnabled: false }} 
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </>
   );
 }

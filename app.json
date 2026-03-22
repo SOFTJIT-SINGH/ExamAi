@@ -10,7 +10,7 @@
       "tsconfigPaths": true
     },
     "plugins": [
-      "expo-router"
+      
     ],
     "orientation": "portrait",
     "icon": "./assets/logo.png",

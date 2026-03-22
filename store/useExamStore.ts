@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { ExamState } from "@/types/exam.types";
-import { mockQuestions } from "@/constants/mockData";
+// The fix
+import { ExamState } from "../types/exam.types";
+import { mockQuestions } from "../constants/mockData";
 
 export const useExamStore = create<ExamState>((set, get) => ({
   questions: mockQuestions,
