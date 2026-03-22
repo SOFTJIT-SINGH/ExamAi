@@ -57,14 +57,17 @@ signUp: async (email, password, firstName, lastName) => {
     await supabase.auth.signOut();
     set({ session: null, isLoading: false });
   },
-  updateUserProfile: async (firstName, lastName) => {
+ updateUserProfile: async (firstName: string, lastName: string) => {
     const { data, error } = await supabase.auth.updateUser({
       data: { first_name: firstName, last_name: lastName }
     });
+    
     if (error) {
       Alert.alert("Update Failed", error.message);
     } else {
-      set({ session: data.session }); // Refresh UI with new name
+      // FIX: Manually fetch the fresh session to update the UI
+      const { data: sessionData } = await supabase.auth.getSession();
+      set({ session: sessionData.session }); 
       Alert.alert("Success", "Profile updated successfully.");
     }
   }

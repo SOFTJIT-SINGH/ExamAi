@@ -1,44 +1,63 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY || '');
+// Expo requires the EXPO_PUBLIC_ prefix to read env variables on the client
+const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
-export interface ProctorResult {
+export type ProctorResult = {
   violation: boolean;
-  reason: 'MULTIPLE_FACES' | 'NO_FACE' | 'PHONE_DETECTED' | 'LOOKING_AWAY' | 'CLEAR' | null;
+  reason?: string;
   confidence: number;
-}
+};
 
-export const analyzeProctorFrame = async (base64Image: string): Promise<ProctorResult | null> => {
+export const analyzeProctorFrame = async (base64Image: string): Promise<ProctorResult> => {
+  if (!apiKey) {
+    throw new Error("Missing EXPO_PUBLIC_GEMINI_API_KEY in .env file");
+  }
+
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = `
-      You are an strict, automated AI exam proctor. Analyze this image captured from a student's webcam during an exam.
-      
-      Identify if any of the following academic integrity violations are occurring:
-      1. MULTIPLE_FACES: There is more than one person visible in the frame.
-      2. NO_FACE: There is no human visible in the frame.
-      3. PHONE_DETECTED: The student is holding or looking at a mobile phone or secondary electronic device.
-      4. LOOKING_AWAY: The student is clearly looking completely away from the screen/camera for an extended period.
+    // Turn off safety filters so it doesn't refuse to analyze the webcam
+    const safetySettings = [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ];
 
-      If no violations are found, the reason should be "CLEAR".
-      
-      Respond ONLY with a valid, raw JSON object in this exact format. Do not include markdown formatting like \`\`\`json.
-      {
-        "violation": boolean,
-        "reason": "STRING_ENUM_FROM_ABOVE",
-        "confidence": number
-      }
-    `;
+    const prompt = `You are a strict AI exam proctor. Analyze this webcam frame of a student.
+You must return ONLY a raw JSON object matching this exact structure:
+{ "violation": boolean, "reason": "string", "confidence": number }
 
-    const imageParts = [{ inlineData: { data: base64Image, mimeType: "image/jpeg" } }];
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const text = result.response.text();
+Mark "violation": true IF ANY of the following occur:
+1. The student is NOT in the frame (reason: "No face detected").
+2. There are MULTIPLE people in the frame (reason: "Multiple people detected").
+3. The student's face is blatantly TURNED AWAY from the camera (reason: "Looking away from screen").
+4. A phone, book, or unauthorized device is visible (reason: "Unauthorized object detected").
 
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanText) as ProctorResult;
-  } catch (error) {
+If the student is looking directly at the camera/screen normally, return "violation": false.`;
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [
+        { text: prompt }, 
+        { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
+      ]}],
+      safetySettings,
+    });
+
+    const responseText = result.response.text();
+    
+    // Bulletproof JSON extractor (ignores any conversational text the AI might add)
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("AI did not return valid JSON.");
+    }
+
+    return JSON.parse(jsonMatch[0]) as ProctorResult;
+
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    return null;
+    throw error; // Throw it so the hook can catch it and alert you!
   }
 };
