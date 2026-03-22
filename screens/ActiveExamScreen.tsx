@@ -145,7 +145,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView className="flex-1 bg-slate-50 relative">
       <View className="absolute top-16 right-4 w-24 h-32 rounded-xl overflow-hidden border-2 border-slate-200 bg-black z-50 shadow-sm">
-        <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" mute={true} />
+        <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" mute={true} animateShutter={false} />
       </View>
 
       <View className="flex-1">
