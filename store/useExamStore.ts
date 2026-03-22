@@ -10,121 +10,88 @@ export const useExamStore = create<ExamState>((set, get) => ({
   timeRemaining: 60 * 30, // 30 mins
   isSubmitted: false,
   isLoading: true, // Starts loading by default
-  logViolation: (examId: string, result: ProctorResult) => Promise<void>,
+  logViolation: (examId: string, result: ProctorResult) => Promise.resolve(),
 
   fetchExamData: async (examId: string) => {
-    set({ isLoading: true });
+    set({ isLoading: true, isSubmitted: false, answers: {}, currentQuestionIndex: 0 });
     try {
-      console.log(`Fetching data for exam: ${examId}...`);
-      
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('exam_id', examId);
-
-      // --- ADD THESE TWO LOGS ---
-      console.log("Supabase Data:", data);
-      console.log("Supabase Error:", error);
-
+      const { data, error } = await supabase.from('questions').select('*').eq('exam_id', examId);
       if (error) throw error;
       if (data && data.length > 0) {
         set({ questions: data, isLoading: false });
       } else {
-        console.warn("No questions found for this Exam ID!");
-        set({ isLoading: false }); // Stop loading even if empty so we don't trap the user
+        set({ isLoading: false });
       }
     } catch (error) {
       console.error("Failed to fetch exam:", error);
       set({ isLoading: false });
     }
   },
-  // --- NEW: Securely log violations to Supabase ---
-  
+
   logViolation: async (examId: string, result: ProctorResult) => {
     try {
-      // 1. Get the securely authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      // 2. Insert the log. RLS ensures this cannot be tampered with.
       const { error } = await supabase.from('proctor_logs').insert({
-        user_id: user.id,
-        exam_id: examId,
-        reason: result.reason,
-        confidence: result.confidence
+        user_id: user.id, exam_id: examId, reason: result.reason, confidence: result.confidence
       });
-
-      if (error) {
-        console.error("Failed to save proctor log:", error.message);
-      } else {
-        console.log(`🔒 Violation securely logged for user: ${user.id}`);
-      }
+      if (error) console.error("Failed to save proctor log:", error.message);
     } catch (error) {
       console.error("Proctor logging error:", error);
     }
   },
 
   selectAnswer: (questionId, optionIndex) => {
-    set((state) => ({
-      answers: { ...state.answers, [questionId]: optionIndex },
-    }));
+    set((state) => ({ answers: { ...state.answers, [questionId]: optionIndex } }));
   },
 
   nextQuestion: () => {
     const { currentQuestionIndex, questions } = get();
-    if (currentQuestionIndex < questions.length - 1) {
-      set({ currentQuestionIndex: currentQuestionIndex + 1 });
-    }
+    if (currentQuestionIndex < questions.length - 1) set({ currentQuestionIndex: currentQuestionIndex + 1 });
   },
 
   previousQuestion: () => {
     const { currentQuestionIndex } = get();
-    if (currentQuestionIndex > 0) {
-      set({ currentQuestionIndex: currentQuestionIndex - 1 });
-    }
+    if (currentQuestionIndex > 0) set({ currentQuestionIndex: currentQuestionIndex - 1 });
   },
 
-// Replace your old submitExam with this upgraded one
-  submitExam: async (examId: string) => {
+  // Upgraded Submit Function
+  submitExam: async (examId: string, status: 'completed' | 'cancelled' = 'completed') => {
     const { questions, answers } = get();
     
-    // 1. Calculate Score
     let correctAnswers = 0;
-    questions.forEach((q) => {
-      if (answers[q.id] === q.correct_option_index) {
-        correctAnswers++;
-      }
-    });
+    questions.forEach((q) => { if (answers[q.id] === q.correct_option_index) correctAnswers++; });
 
-    const scorePercentage = (correctAnswers / questions.length) * 100;
-    const passed = scorePercentage >= 60; // 60% passing threshold
+    const scorePercentage = questions.length > 0 ? (correctAnswers / questions.length) * 100 : 0;
+    const passed = scorePercentage >= 60;
+    const attemptedCount = Object.keys(answers).length;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // 2. Save to Database
         await supabase.from('exam_results').insert({
           user_id: user.id,
           exam_id: examId,
           score: scorePercentage,
           total_questions: questions.length,
-          passed: passed
+          passed: passed,
+          status: status,
+          attempted_questions: attemptedCount
         });
       }
     } catch (error) {
       console.error("Failed to save result:", error);
     }
 
-    // 3. Update UI State
-    set({ isSubmitted: true });
-  },
-  tick: () => {
-    const { timeRemaining, isSubmitted } = get();
-    if (timeRemaining > 0 && !isSubmitted) {
-      set({ timeRemaining: timeRemaining - 1 });
-    }
-    if (timeRemaining === 1) {
+    // ONLY show the result UI if they actually completed it
+    if (status === 'completed') {
       set({ isSubmitted: true });
     }
+  },
+
+  tick: () => {
+    const { timeRemaining, isSubmitted } = get();
+    if (timeRemaining > 0 && !isSubmitted) set({ timeRemaining: timeRemaining - 1 });
+    if (timeRemaining === 1) set({ isSubmitted: true });
   },
 }));

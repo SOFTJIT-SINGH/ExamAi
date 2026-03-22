@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Alert, AppState, AppStateStatus } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Clock, ChevronRight, ChevronLeft, CheckCircle2, Circle, ShieldCheck } from 'lucide-react-native';
+import { Clock, ChevronRight, ChevronLeft, CheckCircle2, Circle, ShieldAlert } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useExamStore } from '../store/useExamStore';
@@ -10,68 +10,44 @@ import { useProctoring } from '../hooks/useProctoring';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveExam'>;
 
-export default function ActiveExamScreen({ route, navigation }: Props) {  const { examId } = route.params;
+export default function ActiveExamScreen({ route, navigation }: Props) {
+  const { examId } = route.params;
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   
   const {
     questions, currentQuestionIndex, answers, timeRemaining, 
-    isSubmitted, isLoading, fetchExamData, selectAnswer,
-    nextQuestion, previousQuestion, submitExam, tick , logViolation
+    isLoading, fetchExamData, selectAnswer,
+    nextQuestion, previousQuestion, submitExam, tick, logViolation
   } = useExamStore();
 
   const currentQuestion = questions[currentQuestionIndex];
   const selectedOptionIndex = currentQuestion ? answers[currentQuestion.id] : null;
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
-  // 1. Fetch Data
   useEffect(() => { fetchExamData(examId); }, [fetchExamData, examId]);
 
-  // 2. Timer
   useEffect(() => {
-    if (isSubmitted || isLoading || !permission?.granted) return;
+    if (isLoading || !permission?.granted) return;
     const timer = setInterval(() => tick(), 1000);
     return () => clearInterval(timer);
-  }, [isSubmitted, isLoading, permission?.granted, tick]);
+  }, [isLoading, permission?.granted, tick]);
 
-  // 3. AI Proctoring
-  const isProctoringActive = !!permission?.granted && !isSubmitted && !isLoading && timeRemaining > 0;
+  const isProctoringActive = !!permission?.granted && !isLoading && timeRemaining > 0;
+  
   useProctoring(cameraRef, isProctoringActive, 10000, (result) => {
-    const messages: Record<string, string> = {
-      MULTIPLE_FACES: "Multiple people detected in frame.",
-      NO_FACE: "Face not visible in the camera.",
-      PHONE_DETECTED: "Electronic device detected.",
-      LOOKING_AWAY: "Please keep your eyes on the screen.",
-    };
     logViolation(examId, result);
-    Alert.alert(
-      "AI Proctor Warning", 
-      `${messages[result.reason || ''] || "Suspicious activity detected."}\n\nContinuing this behavior will flag your exam.`,
-      [{ text: "I Understand", style: "destructive" }]
-    );
+    Alert.alert("SYSTEM WARNING", `Anomaly Detected: ${result.reason}`, [{ text: "Acknowledge", style: "destructive" }]);
   });
 
-  // 4. THE DEVICE MONITOR (Screen Off / Background)
   useEffect(() => {
     if (!isProctoringActive) return;
-
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      // If the app goes inactive (screen off) or background (user swiped home)
       if (nextAppState.match(/inactive|background/)) {
-        logViolation(examId, {
-          violation: true,
-          reason: 'LOOKING_AWAY', // Map app-switching to a standard violation reason
-          confidence: 1.0 // 100% confidence because it's a hardware-level event
-        });
-        Alert.alert(
-          "🚨 CRITICAL PROCTOR VIOLATION",
-          "You exited the application or turned off your screen. This incident has been securely logged to the server.",
-          [{ text: "Acknowledge Warning", style: "destructive" }]
-        );
-        // Note: In production, you would trigger a Supabase insert here to permanently log the violation.
+        logViolation(examId, { violation: true, reason: 'LOOKING_AWAY', confidence: 1.0 });
+        Alert.alert("SESSION BREACH", "Application focus lost. Incident logged.", [{ text: "Acknowledge", style: "destructive" }]);
       }
     });
-
     return () => subscription.remove();
   }, [isProctoringActive, examId, logViolation]);
 
@@ -81,42 +57,35 @@ export default function ActiveExamScreen({ route, navigation }: Props) {  const 
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleComplete = () => {
-    Alert.alert("Submit Exam", "Are you sure? This action is final.", [
-      { text: "Cancel", style: "cancel" }, 
-      // Pass the examId to the store here
-      { text: "Submit", style: "destructive", onPress: () => submitExam(examId) } 
+  const handleCancel = () => {
+    Alert.alert("ABORT SESSION?", "Progress will be marked as incomplete.", [
+      { text: "Resume", style: "cancel" }, 
+      { text: "Abort", style: "destructive", onPress: async () => {
+          await submitExam(examId, 'cancelled');
+          navigation.replace('Dashboard'); 
+        }
+      }
     ]);
   };
 
-  if (isSubmitted) {
-    return (
-      <SafeAreaView className="flex-1 bg-exam-bg justify-center items-center px-6">
-        <ShieldCheck size={72} color="#4338ca" />
-        <Text className="text-3xl font-bold text-exam-dark mt-6 text-center">Exam Secured</Text>
-        <Text className="text-base text-slate-500 mt-3 text-center mb-8">
-          Your proctoring session has ended and your score has been recorded.
-        </Text>
-        <TouchableOpacity 
-          onPress={() => navigation.replace('Dashboard')}
-          className="bg-exam-primary px-8 py-4 rounded-xl shadow-md w-full"
-        >
-          <Text className="font-bold text-white text-lg text-center">Return to Dashboard</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
+  const handleComplete = () => {
+    Alert.alert("CONFIRM SUBMISSION", "Irreversible action. Proceed to grading?", [
+      { text: "Review Options", style: "cancel" }, 
+      { text: "Execute", style: "destructive", onPress: () => {
+          navigation.replace('Grading', { examId });
+        }
+      }
+    ]);
+  };
 
   if (!permission?.granted) {
     return (
       <SafeAreaView className="flex-1 bg-exam-bg justify-center items-center px-8">
-        <ShieldCheck size={80} color="#4338ca" />
-        <Text className="text-2xl font-bold text-exam-dark mt-6 text-center">Camera Access Required</Text>
-        <Text className="text-base text-slate-500 mt-3 text-center mb-8">
-          This is a strictly proctored exam. The timer will not start until access is granted.
-        </Text>
-        <TouchableOpacity onPress={requestPermission} className="bg-exam-primary px-8 py-4 rounded-xl shadow-md w-full">
-          <Text className="font-bold text-white text-lg text-center">Enable Camera to Begin</Text>
+        <ShieldAlert size={80} color="#0ea5e9" />
+        <Text className="text-2xl font-bold text-exam-text mt-6 uppercase">Hardware Lock</Text>
+        <Text className="text-exam-muted mt-3 text-center mb-8">Optical sensor access required.</Text>
+        <TouchableOpacity onPress={requestPermission} className="bg-exam-primary px-8 py-4 rounded-xl shadow-lg w-full">
+          <Text className="font-bold text-exam-bg text-lg text-center uppercase">Grant Access</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -125,78 +94,106 @@ export default function ActiveExamScreen({ route, navigation }: Props) {  const 
   if (isLoading || !currentQuestion) {
     return (
       <SafeAreaView className="flex-1 bg-exam-bg justify-center items-center">
-        <Text className="text-slate-500 font-semibold text-lg">Loading Secure Exam Data...</Text>
+        <Text className="text-exam-primary font-mono tracking-widest uppercase">Initializing Matrix...</Text>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-exam-bg relative">
-      <View className="absolute top-14 right-4 w-28 h-36 rounded-xl overflow-hidden border-[3px] border-exam-accent shadow-lg z-50 bg-black">
+      <View className="absolute top-14 right-4 w-28 h-40 rounded-lg overflow-hidden border border-exam-border bg-black z-50">
         <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" mute={true} />
+        <View className="absolute top-2 right-2 w-2 h-2 rounded-full bg-exam-danger animate-pulse" />
       </View>
 
-      <View className="px-6 py-5 flex-row justify-between items-center border-b border-slate-200 bg-white pr-36">
-        <View>
-          <Text className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Section 1</Text>
-          <Text className="text-lg font-bold text-exam-dark">
-            Question {currentQuestionIndex + 1} <Text className="text-slate-400">/ {questions.length}</Text>
-          </Text>
-        </View>
-        <View className="flex-row items-center bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 shadow-sm">
-          <Clock size={16} color="#dc2626" />
-          <Text className="ml-2 font-bold text-red-600 tracking-widest">{formatTime(timeRemaining)}</Text>
-        </View>
-      </View>
-
-      <View className="flex-1 px-6 pt-8">
-        <View className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm mb-8">
-          <Text className="text-xl font-bold text-slate-800 leading-relaxed">{currentQuestion.text}</Text>
-        </View>
-
-        <View className="space-y-3">
-          {currentQuestion.options.map((option, index) => {
-            const isSelected = selectedOptionIndex === index;
-            return (
-              <TouchableOpacity
-                key={index}
-                activeOpacity={0.7}
-                onPress={() => selectAnswer(currentQuestion.id, index)}
-                className={`w-full p-4 rounded-xl flex-row items-center border-2 transition-all ${
-                  isSelected ? 'border-exam-primary bg-exam-accent/30' : 'border-slate-200 bg-white'
-                }`}
-              >
-                {isSelected ? <CheckCircle2 size={24} color="#4338ca" /> : <Circle size={24} color="#cbd5e1" />}
-                <Text className={`ml-4 text-base flex-1 ${isSelected ? 'text-exam-dark font-bold' : 'text-slate-600 font-medium'}`}>
-                  {option}
-                </Text>
+      <View className="flex-1">
+        <View className="px-6 py-5 flex-row justify-between items-center border-b border-exam-border bg-exam-bg pr-36 mt-2">
+          <View>
+            <Text className="text-[10px] font-bold text-exam-primary uppercase tracking-[0.2em] mb-1">
+              Node {currentQuestionIndex + 1} {"//"} {questions.length}
+            </Text>
+            <View className="flex-row items-center">
+              <TouchableOpacity onPress={handleCancel} className="mr-3 bg-red-500/10 p-1.5 rounded border border-red-500/30">
+                <Text className="text-red-400 font-mono text-[10px] tracking-widest font-bold uppercase">Abort</Text>
               </TouchableOpacity>
-            );
-          })}
+              <Text className="text-lg font-bold text-exam-text">Assessment</Text>
+            </View>
+          </View>
+          
+          <View className="flex-row items-center bg-exam-card px-3 py-1.5 rounded-md border border-exam-border">
+            <Clock size={14} color="#0ea5e9" />
+            <Text className="ml-2 font-mono text-exam-primary text-sm font-bold tracking-widest">{formatTime(timeRemaining)}</Text>
+          </View>
         </View>
-      </View>
 
-      <View className="px-6 py-5 bg-white border-t border-slate-200 flex-row justify-between items-center pb-8">
-        <TouchableOpacity
-          onPress={previousQuestion}
-          disabled={currentQuestionIndex === 0}
-          className={`px-4 py-3 rounded-xl flex-row items-center ${currentQuestionIndex === 0 ? 'opacity-40' : 'opacity-100'}`}
-        >
-          <ChevronLeft size={20} color="#475569" />
-          <Text className="ml-1 font-bold text-slate-600">Back</Text>
-        </TouchableOpacity>
+        <View className="flex-1 px-6 pt-8">
+          <View className="bg-exam-card p-6 rounded-xl border border-exam-border mb-8 shadow-lg shadow-black/20">
+            <Text className="text-xl font-medium text-exam-text leading-relaxed tracking-wide">{currentQuestion.text}</Text>
+          </View>
 
-        {isLastQuestion ? (
-          <TouchableOpacity onPress={handleComplete} className="bg-exam-primary px-8 py-3.5 rounded-xl shadow-md flex-row items-center">
-            <ShieldCheck size={20} color="#ffffff" />
-            <Text className="font-bold text-white text-base ml-2">Submit Exam</Text>
+          <View>
+            {currentQuestion.options.map((option, index) => {
+              const isSelected = selectedOptionIndex === index;
+              return (
+                <TouchableOpacity
+                  key={`${currentQuestion.id}-${index}`}
+                  activeOpacity={0.8}
+                  onPress={() => selectAnswer(currentQuestion.id, index)}
+                  style={{
+                    width: '100%', padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, marginBottom: 12,
+                    backgroundColor: isSelected ? 'rgba(14, 165, 233, 0.1)' : '#1e293b',
+                    borderColor: isSelected ? '#0ea5e9' : '#334155'
+                  }}
+                >
+                  {isSelected ? <CheckCircle2 size={20} color="#0ea5e9" style={{ marginRight: 16 }} /> : <Circle size={20} color="#52525b" style={{ marginRight: 16 }} />}
+                  <Text style={{ fontSize: 16, flex: 1, color: isSelected ? '#0ea5e9' : '#94a3b8', fontWeight: isSelected ? 'bold' : '500' }}>{option}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* CRITICAL BYPASS: This bottom bar now uses raw React Native styles. 
+          The DOM nodes NEVER unmount, they only change color and text. 
+          This guarantees Reanimated cannot crash the Navigation Context. 
+        */}
+        <View style={{ paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#0f172a', borderTopWidth: 1, borderColor: '#1e293b', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32 }}>
+          
+          <TouchableOpacity
+            onPress={previousQuestion}
+            disabled={currentQuestionIndex === 0}
+            style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', opacity: currentQuestionIndex === 0 ? 0.3 : 1 }}
+          >
+            <ChevronLeft size={20} color="#a1a1aa" />
+            <Text style={{ marginLeft: 4, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, fontSize: 12 }}>Prev</Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={nextQuestion} className="bg-exam-dark px-8 py-3.5 rounded-xl flex-row items-center shadow-md">
-            <Text className="font-bold text-white text-base mr-1">Next</Text>
-            <ChevronRight size={20} color="#ffffff" />
+
+          {/* THE UNIFIED BUTTON */}
+          <TouchableOpacity 
+            onPress={isLastQuestion ? handleComplete : nextQuestion} 
+            style={{
+              backgroundColor: isLastQuestion ? '#ef4444' : '#1e293b',
+              borderWidth: 1,
+              borderColor: isLastQuestion ? '#dc2626' : '#334155',
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              borderRadius: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: isLastQuestion ? '#ef4444' : 'transparent',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 5
+            }}
+          >
+            <Text style={{ fontWeight: 'bold', color: isLastQuestion ? 'white' : '#f8fafc', textTransform: 'uppercase', letterSpacing: 2, fontSize: 14, marginRight: isLastQuestion ? 0 : 8 }}>
+              {isLastQuestion ? 'Commit' : 'Next'}
+            </Text>
+            {!isLastQuestion && <ChevronRight size={18} color="#f8fafc" />}
           </TouchableOpacity>
-        )}
+
+        </View>
       </View>
     </SafeAreaView>
   );
