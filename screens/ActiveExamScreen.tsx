@@ -37,7 +37,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   
   useProctoring(cameraRef, isProctoringActive, 10000, (result) => {
     logViolation(examId, result);
-    Alert.alert("SYSTEM WARNING", `Anomaly Detected: ${result.reason}`, [{ text: "Acknowledge", style: "destructive" }]);
+    Alert.alert("Proctor Warning", `System Note: ${result.reason}`, [{ text: "I Understand", style: "default" }]);
   });
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState.match(/inactive|background/)) {
         logViolation(examId, { violation: true, reason: 'LOOKING_AWAY', confidence: 1.0 });
-        Alert.alert("SESSION BREACH", "Application focus lost. Incident logged.", [{ text: "Acknowledge", style: "destructive" }]);
+        Alert.alert("Exam Paused", "You left the exam app. This action has been recorded.", [{ text: "Return to Exam", style: "default" }]);
       }
     });
     return () => subscription.remove();
@@ -58,9 +58,9 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   };
 
   const handleCancel = () => {
-    Alert.alert("ABORT SESSION?", "Progress will be marked as incomplete.", [
-      { text: "Resume", style: "cancel" }, 
-      { text: "Abort", style: "destructive", onPress: async () => {
+    Alert.alert("Cancel Exam?", "Your progress will be saved as incomplete.", [
+      { text: "Keep Testing", style: "cancel" }, 
+      { text: "Quit Exam", style: "destructive", onPress: async () => {
           await submitExam(examId, 'cancelled');
           navigation.replace('Dashboard'); 
         }
@@ -69,9 +69,9 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   };
 
   const handleComplete = () => {
-    Alert.alert("CONFIRM SUBMISSION", "Irreversible action. Proceed to grading?", [
-      { text: "Review Options", style: "cancel" }, 
-      { text: "Execute", style: "destructive", onPress: () => {
+    Alert.alert("Submit Exam", "Are you sure you want to finish and grade your exam?", [
+      { text: "Review Answers", style: "cancel" }, 
+      { text: "Submit", style: "default", onPress: () => {
           navigation.replace('Grading', { examId });
         }
       }
@@ -80,12 +80,12 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
 
   if (!permission?.granted) {
     return (
-      <SafeAreaView className="flex-1 bg-exam-bg justify-center items-center px-8">
-        <ShieldAlert size={80} color="#0ea5e9" />
-        <Text className="text-2xl font-bold text-exam-text mt-6 uppercase">Hardware Lock</Text>
-        <Text className="text-exam-muted mt-3 text-center mb-8">Optical sensor access required.</Text>
-        <TouchableOpacity onPress={requestPermission} className="bg-exam-primary px-8 py-4 rounded-xl shadow-lg w-full">
-          <Text className="font-bold text-exam-bg text-lg text-center uppercase">Grant Access</Text>
+      <SafeAreaView className="flex-1 bg-slate-50 justify-center items-center px-8">
+        <ShieldAlert size={80} color="#3b82f6" />
+        <Text className="text-2xl font-bold text-slate-800 mt-6 text-center">Camera Access Required</Text>
+        <Text className="text-slate-500 mt-3 text-center mb-8 text-base">We need camera access to proctor this exam securely.</Text>
+        <TouchableOpacity onPress={requestPermission} className="bg-blue-600 px-8 py-4 rounded-xl shadow-sm w-full">
+          <Text className="font-bold text-white text-lg text-center">Allow Camera Access</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -93,42 +93,42 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
 
   if (isLoading || !currentQuestion) {
     return (
-      <SafeAreaView className="flex-1 bg-exam-bg justify-center items-center">
-        <Text className="text-exam-primary font-mono tracking-widest uppercase">Initializing Matrix...</Text>
+      <SafeAreaView className="flex-1 bg-slate-50 justify-center items-center">
+        <Text className="text-blue-600 font-bold text-lg">Loading Exam Data...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-exam-bg relative">
-      <View className="absolute top-14 right-4 w-28 h-40 rounded-lg overflow-hidden border border-exam-border bg-black z-50">
+    <SafeAreaView className="flex-1 bg-slate-50 relative">
+      {/* Subtle PiP Camera */}
+      <View className="absolute top-14 right-4 w-24 h-32 rounded-xl overflow-hidden border-2 border-slate-200 bg-black z-50 shadow-sm">
         <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" mute={true} />
-        <View className="absolute top-2 right-2 w-2 h-2 rounded-full bg-exam-danger animate-pulse" />
       </View>
 
       <View className="flex-1">
-        <View className="px-6 py-5 flex-row justify-between items-center border-b border-exam-border bg-exam-bg pr-36 mt-2">
+        <View className="px-6 py-5 flex-row justify-between items-center border-b border-slate-200 bg-white pr-32 shadow-sm z-10">
           <View>
-            <Text className="text-[10px] font-bold text-exam-primary uppercase tracking-[0.2em] mb-1">
-              Node {currentQuestionIndex + 1} {"//"} {questions.length}
+            <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+              Question {currentQuestionIndex + 1} of {questions.length}
             </Text>
             <View className="flex-row items-center">
-              <TouchableOpacity onPress={handleCancel} className="mr-3 bg-red-500/10 p-1.5 rounded border border-red-500/30">
-                <Text className="text-red-400 font-mono text-[10px] tracking-widest font-bold uppercase">Abort</Text>
+              <TouchableOpacity onPress={handleCancel} className="mr-3 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                <Text className="text-slate-600 font-bold text-xs uppercase">Quit</Text>
               </TouchableOpacity>
-              <Text className="text-lg font-bold text-exam-text">Assessment</Text>
+              <Text className="text-lg font-bold text-slate-800">Quiz</Text>
             </View>
           </View>
           
-          <View className="flex-row items-center bg-exam-card px-3 py-1.5 rounded-md border border-exam-border">
-            <Clock size={14} color="#0ea5e9" />
-            <Text className="ml-2 font-mono text-exam-primary text-sm font-bold tracking-widest">{formatTime(timeRemaining)}</Text>
+          <View className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+            <Clock size={16} color="#3b82f6" />
+            <Text className="ml-2 font-bold text-blue-600 text-sm">{formatTime(timeRemaining)}</Text>
           </View>
         </View>
 
         <View className="flex-1 px-6 pt-8">
-          <View className="bg-exam-card p-6 rounded-xl border border-exam-border mb-8 shadow-lg shadow-black/20">
-            <Text className="text-xl font-medium text-exam-text leading-relaxed tracking-wide">{currentQuestion.text}</Text>
+          <View className="bg-white p-6 rounded-2xl border border-slate-200 mb-8 shadow-sm">
+            <Text className="text-xl font-bold text-slate-800 leading-relaxed">{currentQuestion.text}</Text>
           </View>
 
           <View>
@@ -137,60 +137,58 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
               return (
                 <TouchableOpacity
                   key={`${currentQuestion.id}-${index}`}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                   onPress={() => selectAnswer(currentQuestion.id, index)}
                   style={{
-                    width: '100%', padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, marginBottom: 12,
-                    backgroundColor: isSelected ? 'rgba(14, 165, 233, 0.1)' : '#1e293b',
-                    borderColor: isSelected ? '#0ea5e9' : '#334155'
+                    width: '100%', padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, marginBottom: 12,
+                    backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                    borderColor: isSelected ? '#3b82f6' : '#e2e8f0',
+                    shadowColor: isSelected ? '#3b82f6' : 'transparent',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 2
                   }}
                 >
-                  {isSelected ? <CheckCircle2 size={20} color="#0ea5e9" style={{ marginRight: 16 }} /> : <Circle size={20} color="#52525b" style={{ marginRight: 16 }} />}
-                  <Text style={{ fontSize: 16, flex: 1, color: isSelected ? '#0ea5e9' : '#94a3b8', fontWeight: isSelected ? 'bold' : '500' }}>{option}</Text>
+                  {isSelected ? <CheckCircle2 size={24} color="#3b82f6" style={{ marginRight: 16 }} /> : <Circle size={24} color="#cbd5e1" style={{ marginRight: 16 }} />}
+                  <Text style={{ fontSize: 16, flex: 1, color: isSelected ? '#1e40af' : '#475569', fontWeight: isSelected ? '700' : '500' }}>{option}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        {/* CRITICAL BYPASS: This bottom bar now uses raw React Native styles. 
-          The DOM nodes NEVER unmount, they only change color and text. 
-          This guarantees Reanimated cannot crash the Navigation Context. 
-        */}
-        <View style={{ paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#0f172a', borderTopWidth: 1, borderColor: '#1e293b', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32 }}>
+        <View style={{ paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#ffffff', borderTopWidth: 1, borderColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32 }}>
           
           <TouchableOpacity
             onPress={previousQuestion}
             disabled={currentQuestionIndex === 0}
             style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', opacity: currentQuestionIndex === 0 ? 0.3 : 1 }}
           >
-            <ChevronLeft size={20} color="#a1a1aa" />
-            <Text style={{ marginLeft: 4, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, fontSize: 12 }}>Prev</Text>
+            <ChevronLeft size={24} color="#64748b" />
+            <Text style={{ marginLeft: 4, fontWeight: 'bold', color: '#64748b', fontSize: 16 }}>Back</Text>
           </TouchableOpacity>
 
-          {/* THE UNIFIED BUTTON */}
           <TouchableOpacity 
             onPress={isLastQuestion ? handleComplete : nextQuestion} 
             style={{
-              backgroundColor: isLastQuestion ? '#ef4444' : '#1e293b',
-              borderWidth: 1,
-              borderColor: isLastQuestion ? '#dc2626' : '#334155',
+              backgroundColor: isLastQuestion ? '#10b981' : '#3b82f6',
               paddingHorizontal: 32,
               paddingVertical: 14,
-              borderRadius: 8,
+              borderRadius: 12,
               flexDirection: 'row',
               alignItems: 'center',
-              shadowColor: isLastQuestion ? '#ef4444' : 'transparent',
+              shadowColor: isLastQuestion ? '#10b981' : '#3b82f6',
               shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
+              shadowOpacity: 0.3,
               shadowRadius: 8,
-              elevation: 5
+              elevation: 4
             }}
           >
-            <Text style={{ fontWeight: 'bold', color: isLastQuestion ? 'white' : '#f8fafc', textTransform: 'uppercase', letterSpacing: 2, fontSize: 14, marginRight: isLastQuestion ? 0 : 8 }}>
-              {isLastQuestion ? 'Commit' : 'Next'}
+            <Text style={{ fontWeight: 'bold', color: 'white', fontSize: 16, marginRight: isLastQuestion ? 0 : 8 }}>
+              {isLastQuestion ? 'Submit Exam' : 'Next'}
             </Text>
-            {!isLastQuestion && <ChevronRight size={18} color="#f8fafc" />}
+            {!isLastQuestion && <ChevronRight size={20} color="white" />}
           </TouchableOpacity>
 
         </View>

@@ -16,23 +16,23 @@ export default function ResultScreen({ navigation }: Props) {
   const finalScore = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-exam-bg">
-      <View className="px-6 py-5 border-b border-exam-border bg-exam-card flex-row justify-between items-center mt-2">
-        <Text className="text-xl font-bold text-exam-text tracking-widest uppercase">Post-Action Report</Text>
-        <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4, borderWidth: 1, backgroundColor: finalScore >= 60 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderColor: finalScore >= 60 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)' }}>
-          <Text style={{ fontFamily: 'monospace', fontWeight: 'bold', color: finalScore >= 60 ? '#4ade80' : '#f87171' }}>SCORE: {finalScore}%</Text>
+    <SafeAreaView className="flex-1 bg-slate-50">
+      <View className="px-6 py-5 border-b border-slate-200 bg-white flex-row justify-between items-center shadow-sm z-10">
+        <Text className="text-xl font-bold text-slate-800">Exam Results</Text>
+        <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: finalScore >= 60 ? '#dcfce7' : '#fee2e2' }}>
+          <Text style={{ fontWeight: 'bold', color: finalScore >= 60 ? '#166534' : '#991b1b' }}>Score: {finalScore}%</Text>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
         {questions.map((q, index) => {
           const userAnswer = answers[q.id];
           const isCorrect = userAnswer === q.correct_option_index;
 
           return (
-            <View key={`result-${q.id}-${index}`} className="bg-exam-card p-5 rounded-xl border border-exam-border mb-6">
-              <Text className="text-exam-primary font-mono text-xs tracking-widest mb-2">NODE {index + 1}</Text>
-              <Text className="text-exam-text text-base mb-4 leading-relaxed">{q.text}</Text>
+            <View key={`result-${q.id}-${index}`} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6">
+              <Text className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-2">Question {index + 1}</Text>
+              <Text className="text-slate-800 text-lg font-bold mb-5 leading-relaxed">{q.text}</Text>
               
               <View className="mb-4">
                 {q.options.map((opt, optIdx) => {
@@ -41,14 +41,14 @@ export default function ResultScreen({ navigation }: Props) {
                   
                   return (
                     <View key={`opt-${q.id}-${optIdx}`} style={{
-                      padding: 12, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 8,
-                      backgroundColor: isActualCorrect ? 'rgba(74, 222, 128, 0.1)' : (isUserChoice && !isCorrect) ? 'rgba(248, 113, 113, 0.1)' : '#0f172a',
-                      borderColor: isActualCorrect ? 'rgba(74, 222, 128, 0.5)' : (isUserChoice && !isCorrect) ? 'rgba(248, 113, 113, 0.5)' : '#334155'
+                      padding: 16, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 10,
+                      backgroundColor: isActualCorrect ? '#f0fdf4' : (isUserChoice && !isCorrect) ? '#fef2f2' : '#f8fafc',
+                      borderColor: isActualCorrect ? '#86efac' : (isUserChoice && !isCorrect) ? '#fca5a5' : '#e2e8f0'
                     }}>
-                      {isActualCorrect ? <CheckCircle2 size={16} color="#4ade80" style={{ marginRight: 12 }} /> : 
-                       (isUserChoice && !isCorrect) ? <XCircle size={16} color="#f87171" style={{ marginRight: 12 }} /> : 
-                       <Circle size={16} color="#3f3f46" style={{ marginRight: 12 }} />}
-                      <Text style={{ flex: 1, color: isActualCorrect ? '#4ade80' : (isUserChoice && !isCorrect) ? '#f87171' : '#94a3b8', fontWeight: isActualCorrect ? 'bold' : 'normal' }}>
+                      {isActualCorrect ? <CheckCircle2 size={20} color="#16a34a" style={{ marginRight: 16 }} /> : 
+                       (isUserChoice && !isCorrect) ? <XCircle size={20} color="#dc2626" style={{ marginRight: 16 }} /> : 
+                       <Circle size={20} color="#94a3b8" style={{ marginRight: 16 }} />}
+                      <Text style={{ flex: 1, fontSize: 15, color: isActualCorrect ? '#166534' : (isUserChoice && !isCorrect) ? '#991b1b' : '#64748b', fontWeight: isActualCorrect || isUserChoice ? 'bold' : 'normal' }}>
                         {opt}
                       </Text>
                     </View>
@@ -57,9 +57,9 @@ export default function ResultScreen({ navigation }: Props) {
               </View>
 
               {q.explanation ? (
-                <View className="bg-exam-bg p-4 rounded-lg border border-exam-border/50">
-                  <Text className="text-exam-muted text-sm leading-relaxed">
-                    <Text className="text-exam-text font-bold uppercase text-xs tracking-widest">Analysis: </Text>
+                <View className="bg-blue-50 p-4 rounded-xl border border-blue-100 mt-2">
+                  <Text className="text-slate-700 text-sm leading-relaxed">
+                    <Text className="text-blue-700 font-bold text-xs uppercase tracking-wider">Explanation: </Text>
                     {q.explanation}
                   </Text>
                 </View>
@@ -69,13 +69,13 @@ export default function ResultScreen({ navigation }: Props) {
         })}
       </ScrollView>
 
-      <View className="absolute bottom-0 left-0 right-0 p-6 bg-exam-bg border-t border-exam-border">
+      <View className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-200">
         <TouchableOpacity 
           onPress={() => navigation.replace('Dashboard')}
-          className="bg-exam-primary px-8 py-4 rounded-xl shadow-lg w-full flex-row justify-center items-center"
+          className="bg-slate-800 px-8 py-4 rounded-xl shadow-md w-full flex-row justify-center items-center"
         >
-          <Text className="font-bold text-exam-bg text-lg tracking-widest uppercase mr-2">Close Report</Text>
-          <LogOut size={20} color="#0f172a" />
+          <Text className="font-bold text-white text-lg mr-2">Return to Dashboard</Text>
+          <LogOut size={20} color="#ffffff" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>

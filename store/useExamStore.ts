@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { Alert } from "react-native"; // <-- Added for error visibility
 import { ExamState } from "../types/exam.types";
 import { supabase } from "../utils/supabase";
 import { ProctorResult } from '../utils/geminiProctor';
@@ -7,10 +8,9 @@ export const useExamStore = create<ExamState>((set, get) => ({
   questions: [],
   currentQuestionIndex: 0,
   answers: {},
-  timeRemaining: 60 * 30, // 30 mins
+  timeRemaining: 60 * 30, 
   isSubmitted: false,
-  isLoading: true, // Starts loading by default
-  logViolation: (examId: string, result: ProctorResult) => Promise.resolve(),
+  isLoading: true, 
 
   fetchExamData: async (examId: string) => {
     set({ isLoading: true, isSubmitted: false, answers: {}, currentQuestionIndex: 0 });
@@ -32,10 +32,9 @@ export const useExamStore = create<ExamState>((set, get) => ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { error } = await supabase.from('proctor_logs').insert({
+      await supabase.from('proctor_logs').insert({
         user_id: user.id, exam_id: examId, reason: result.reason, confidence: result.confidence
       });
-      if (error) console.error("Failed to save proctor log:", error.message);
     } catch (error) {
       console.error("Proctor logging error:", error);
     }
@@ -55,21 +54,20 @@ export const useExamStore = create<ExamState>((set, get) => ({
     if (currentQuestionIndex > 0) set({ currentQuestionIndex: currentQuestionIndex - 1 });
   },
 
-  // Upgraded Submit Function
   submitExam: async (examId: string, status: 'completed' | 'cancelled' = 'completed') => {
     const { questions, answers } = get();
     
     let correctAnswers = 0;
     questions.forEach((q) => { if (answers[q.id] === q.correct_option_index) correctAnswers++; });
 
-    const scorePercentage = questions.length > 0 ? (correctAnswers / questions.length) * 100 : 0;
+    const scorePercentage = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
     const passed = scorePercentage >= 60;
     const attemptedCount = Object.keys(answers).length;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('exam_results').insert({
+        const { error } = await supabase.from('exam_results').insert({
           user_id: user.id,
           exam_id: examId,
           score: scorePercentage,
@@ -78,20 +76,20 @@ export const useExamStore = create<ExamState>((set, get) => ({
           status: status,
           attempted_questions: attemptedCount
         });
+
+        // IF THE DATABASE REJECTS IT, WE WILL KNOW IMMEDIATELY
+        if (error) {
+          console.error("Supabase Insert Error:", error);
+          Alert.alert("Database Error", `Failed to save exam: ${error.message}`);
+        }
       }
     } catch (error) {
       console.error("Failed to save result:", error);
-    }
-
-    // ONLY show the result UI if they actually completed it
-    if (status === 'completed') {
-      set({ isSubmitted: true });
     }
   },
 
   tick: () => {
     const { timeRemaining, isSubmitted } = get();
     if (timeRemaining > 0 && !isSubmitted) set({ timeRemaining: timeRemaining - 1 });
-    if (timeRemaining === 1) set({ isSubmitted: true });
   },
 }));
