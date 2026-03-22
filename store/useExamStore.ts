@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Alert } from "react-native"; // <-- Added for error visibility
+import { Alert } from "react-native";
 import { ExamState } from "../types/exam.types";
 import { supabase } from "../utils/supabase";
 import { ProctorResult } from '../utils/geminiProctor';
@@ -12,13 +12,19 @@ export const useExamStore = create<ExamState>((set, get) => ({
   isSubmitted: false,
   isLoading: true, 
 
-  fetchExamData: async (examId: string) => {
+  // Replace the fetchExamData function inside useExamStore.ts with this:
+  fetchExamData: async (examId: string, limit?: number) => {
     set({ isLoading: true, isSubmitted: false, answers: {}, currentQuestionIndex: 0 });
     try {
       const { data, error } = await supabase.from('questions').select('*').eq('exam_id', examId);
       if (error) throw error;
+      
       if (data && data.length > 0) {
-        set({ questions: data, isLoading: false });
+        // Randomize questions so it's fresh every time
+        const shuffled = data.sort(() => 0.5 - Math.random());
+        // Slice based on the user's selected limit
+        const finalQuestions = limit ? shuffled.slice(0, limit) : shuffled;
+        set({ questions: finalQuestions, isLoading: false });
       } else {
         set({ isLoading: false });
       }
@@ -54,14 +60,16 @@ export const useExamStore = create<ExamState>((set, get) => ({
     if (currentQuestionIndex > 0) set({ currentQuestionIndex: currentQuestionIndex - 1 });
   },
 
-  submitExam: async (examId: string, status: 'completed' | 'cancelled' = 'completed') => {
+  // Added 'terminated' status
+  submitExam: async (examId: string, status: 'completed' | 'cancelled' | 'terminated' = 'completed') => {
     const { questions, answers } = get();
     
     let correctAnswers = 0;
     questions.forEach((q) => { if (answers[q.id] === q.correct_option_index) correctAnswers++; });
 
-    const scorePercentage = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
-    const passed = scorePercentage >= 60;
+    // If terminated due to cheating, score is 0
+    const scorePercentage = status === 'terminated' ? 0 : (questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0);
+    const passed = scorePercentage >= 60 && status === 'completed';
     const attemptedCount = Object.keys(answers).length;
 
     try {
@@ -74,14 +82,11 @@ export const useExamStore = create<ExamState>((set, get) => ({
           total_questions: questions.length,
           passed: passed,
           status: status,
-          attempted_questions: attemptedCount
+          attempted_questions: attemptedCount,
+          answers: answers // <-- SAVES ANSWERS FOR STUDY MODE
         });
 
-        // IF THE DATABASE REJECTS IT, WE WILL KNOW IMMEDIATELY
-        if (error) {
-          console.error("Supabase Insert Error:", error);
-          Alert.alert("Database Error", `Failed to save exam: ${error.message}`);
-        }
+        if (error) Alert.alert("Database Error", `Failed to save exam: ${error.message}`);
       }
     } catch (error) {
       console.error("Failed to save result:", error);

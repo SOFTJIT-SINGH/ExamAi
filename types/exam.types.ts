@@ -1,4 +1,16 @@
+import { Session } from '@supabase/supabase-js';
 import { ProctorResult } from '../utils/geminiProctor';
+
+export interface AuthState {
+  session: Session | null;
+  isLoading: boolean;
+  initializeAuth: () => Promise<void>;
+  
+  // FIXED: Added firstName and lastName to the blueprint
+  signUp: (email: string, password: string, firstName: string, lastName?: string) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<any>;
+  signOut: () => Promise<void>;
+}
 
 export interface Question {
   id: string;
@@ -6,7 +18,7 @@ export interface Question {
   text: string;
   options: string[];
   correct_option_index: number;
-  explanation?: string; // <-- Added to support the new database column
+  explanation?: string;
 }
 
 export interface ExamState {
@@ -17,11 +29,12 @@ export interface ExamState {
   isSubmitted: boolean;
   isLoading: boolean;
 
-  fetchExamData: (examId: string) => Promise<void>;
+  // FIXED: Added the optional limit parameter
+  fetchExamData: (examId: string, limit?: number) => Promise<void>;
   selectAnswer: (questionId: string, optionIndex: number) => void;
   nextQuestion: () => void;
   previousQuestion: () => void;
-  submitExam: (examId: string, status?: 'completed' | 'cancelled') => Promise<void>;
+  submitExam: (examId: string, status?: 'completed' | 'cancelled' | 'terminated') => Promise<void>;
   tick: () => void;
-  logViolation: (examId: string, result: ProctorResult) => Promise<void>; // <-- THE MISSING PIECE
+  logViolation: (examId: string, result: ProctorResult) => Promise<void>;
 }

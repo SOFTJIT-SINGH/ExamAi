@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckCircle2, Circle, XCircle, LogOut } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -8,17 +8,37 @@ import { useExamStore } from '../store/useExamStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
-export default function ResultScreen({ navigation }: Props) {
-  const { questions, answers } = useExamStore();
+export default function ResultScreen({ route, navigation }: Props) {
+  const { examId, reviewAnswers } = route.params;
+  const { questions, answers: liveAnswers, fetchExamData, isLoading } = useExamStore();
+  
+  // If we passed review answers in, use those. Otherwise use the live ones from the store.
+  const activeAnswers = reviewAnswers || liveAnswers;
+
+  // If we enter this screen directly from Profile, the store's questions might be empty.
+  useEffect(() => {
+    if (questions.length === 0 || questions[0]?.exam_id !== examId) {
+      fetchExamData(examId);
+    }
+  }, [examId]);
+
+  if (isLoading || questions.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-slate-50 justify-center items-center">
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text className="mt-4 text-slate-500 font-medium">Loading Assessment Data...</Text>
+      </SafeAreaView>
+    );
+  }
 
   let correctCount = 0;
-  questions.forEach(q => { if (answers[q.id] === q.correct_option_index) correctCount++; });
+  questions.forEach(q => { if (activeAnswers[q.id] === q.correct_option_index) correctCount++; });
   const finalScore = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
       <View className="px-6 py-5 border-b border-slate-200 bg-white flex-row justify-between items-center shadow-sm z-10">
-        <Text className="text-xl font-bold text-slate-800">Exam Results</Text>
+        <Text className="text-xl font-bold text-slate-800">{reviewAnswers ? 'Study Mode' : 'Exam Results'}</Text>
         <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: finalScore >= 60 ? '#dcfce7' : '#fee2e2' }}>
           <Text style={{ fontWeight: 'bold', color: finalScore >= 60 ? '#166534' : '#991b1b' }}>Score: {finalScore}%</Text>
         </View>
@@ -26,7 +46,7 @@ export default function ResultScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
         {questions.map((q, index) => {
-          const userAnswer = answers[q.id];
+          const userAnswer = activeAnswers[q.id];
           const isCorrect = userAnswer === q.correct_option_index;
 
           return (

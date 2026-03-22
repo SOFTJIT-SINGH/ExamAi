@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, AppState, AppStateStatus } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Clock, ChevronRight, ChevronLeft, CheckCircle2, Circle, ShieldAlert } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useExamStore } from '../store/useExamStore';
@@ -11,10 +12,13 @@ import { useProctoring } from '../hooks/useProctoring';
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveExam'>;
 
 export default function ActiveExamScreen({ route, navigation }: Props) {
-  const { examId } = route.params;
+  const { examId, limit } = route.params;
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   
+  // NEW: 3 Strikes State
+  const [strikes, setStrikes] = useState(0);
+
   const {
     questions, currentQuestionIndex, answers, timeRemaining, 
     isLoading, fetchExamData, selectAnswer,
@@ -25,7 +29,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   const selectedOptionIndex = currentQuestion ? answers[currentQuestion.id] : null;
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
-  useEffect(() => { fetchExamData(examId); }, [fetchExamData, examId]);
+  useEffect(() => { fetchExamData(examId, limit); }, [fetchExamData, examId, limit]); // <-- Pass it in
 
   useEffect(() => {
     if (isLoading || !permission?.granted) return;
@@ -37,7 +41,26 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   
   useProctoring(cameraRef, isProctoringActive, 10000, (result) => {
     logViolation(examId, result);
-    Alert.alert("Proctor Warning", `System Note: ${result.reason}`, [{ text: "I Understand", style: "default" }]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); // Heavy buzz on cheat detection
+
+    setStrikes(prev => {
+      const newStrikes = prev + 1;
+      if (newStrikes === 1) {
+        Alert.alert("Proctor Warning (1/3)", `System Note: ${result.reason}\n\nPlease maintain testing conditions.`, [{ text: "I Understand", style: "default" }]);
+      } else if (newStrikes === 2) {
+        Alert.alert("Final Warning (2/3)", `System Note: ${result.reason}\n\nOne more violation will result in automatic termination of your exam.`, [{ text: "I Understand", style: "destructive" }]);
+      } else if (newStrikes >= 3) {
+        Alert.alert("Exam Terminated", "You have exceeded the maximum number of proctoring violations. Your exam has been voided.", [{ 
+          text: "Exit", 
+          style: "destructive", 
+          onPress: async () => {
+             await submitExam(examId, 'terminated');
+             navigation.replace('Dashboard');
+          }
+        }]);
+      }
+      return newStrikes;
+    });
   });
 
   useEffect(() => {
@@ -45,7 +68,15 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState.match(/inactive|background/)) {
         logViolation(examId, { violation: true, reason: 'LOOKING_AWAY', confidence: 1.0 });
-        Alert.alert("Exam Paused", "You left the exam app. This action has been recorded.", [{ text: "Return to Exam", style: "default" }]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert("Exam Terminated", "You left the exam app. This violates the testing policy and your session has been voided.", [{ 
+          text: "Exit", 
+          style: "destructive", 
+          onPress: async () => {
+             await submitExam(examId, 'terminated');
+             navigation.replace('Dashboard');
+          }
+        }]);
       }
     });
     return () => subscription.remove();
@@ -78,6 +109,16 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     ]);
   };
 
+  const handleOptionSelect = (id: string, index: number) => {
+    Haptics.selectionAsync(); // Light click feeling
+    selectAnswer(id, index);
+  };
+
+  const handleNextPrev = (action: () => void) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    action();
+  };
+
   if (!permission?.granted) {
     return (
       <SafeAreaView className="flex-1 bg-slate-50 justify-center items-center px-8">
@@ -99,15 +140,21 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     );
   }
 
+  const progressPercentage = ((currentQuestionIndex + 1) / questions.length) * 100;
+
   return (
     <SafeAreaView className="flex-1 bg-slate-50 relative">
-      {/* Subtle PiP Camera */}
-      <View className="absolute top-14 right-4 w-24 h-32 rounded-xl overflow-hidden border-2 border-slate-200 bg-black z-50 shadow-sm">
+      <View className="absolute top-16 right-4 w-24 h-32 rounded-xl overflow-hidden border-2 border-slate-200 bg-black z-50 shadow-sm">
         <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" mute={true} />
       </View>
 
       <View className="flex-1">
-        <View className="px-6 py-5 flex-row justify-between items-center border-b border-slate-200 bg-white pr-32 shadow-sm z-10">
+        {/* NEW: Smooth Progress Bar */}
+        <View style={{ height: 4, backgroundColor: '#e2e8f0', width: '100%' }}>
+          <View style={{ height: '100%', backgroundColor: '#3b82f6', width: `${progressPercentage}%` }} />
+        </View>
+
+        <View className="px-6 py-4 flex-row justify-between items-center border-b border-slate-200 bg-white pr-32 shadow-sm z-10">
           <View>
             <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
               Question {currentQuestionIndex + 1} of {questions.length}
@@ -138,7 +185,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
                 <TouchableOpacity
                   key={`${currentQuestion.id}-${index}`}
                   activeOpacity={0.7}
-                  onPress={() => selectAnswer(currentQuestion.id, index)}
+                  onPress={() => handleOptionSelect(currentQuestion.id, index)}
                   style={{
                     width: '100%', padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, marginBottom: 12,
                     backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
@@ -161,7 +208,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
         <View style={{ paddingHorizontal: 24, paddingVertical: 20, backgroundColor: '#ffffff', borderTopWidth: 1, borderColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 32 }}>
           
           <TouchableOpacity
-            onPress={previousQuestion}
+            onPress={() => handleNextPrev(previousQuestion)}
             disabled={currentQuestionIndex === 0}
             style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', opacity: currentQuestionIndex === 0 ? 0.3 : 1 }}
           >
@@ -170,7 +217,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={isLastQuestion ? handleComplete : nextQuestion} 
+            onPress={isLastQuestion ? handleComplete : () => handleNextPrev(nextQuestion)} 
             style={{
               backgroundColor: isLastQuestion ? '#10b981' : '#3b82f6',
               paddingHorizontal: 32,
@@ -190,7 +237,6 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
             </Text>
             {!isLastQuestion && <ChevronRight size={20} color="white" />}
           </TouchableOpacity>
-
         </View>
       </View>
     </SafeAreaView>
