@@ -1,5 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, User, Award, Target, BookOpen, Edit2, Check } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,15 +34,25 @@ export default function ProfileScreen({ navigation }: Props) {
       const fetchProfileData = async () => {
         if (!session?.user) return;
         setLoading(true);
-        const { data } = await supabase.from('exam_results').select(`*, exams(title)`).eq('user_id', session.user.id).order('created_at', { ascending: false });
+        const { data } = await supabase
+          .from('exam_results')
+          .select(`*, exams(title)`)
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false });
 
         if (data && data.length > 0) {
-          const completedExams = data.filter(e => e.status === 'completed' || !e.status);
-          const passedCount = completedExams.filter(e => e.passed).length;
-          const totalScore = completedExams.reduce((acc, curr) => acc + (Number(curr.score) || 0), 0);
+          const completedExams = data.filter((e) => e.status === 'completed' || !e.status);
+          const passedCount = completedExams.filter((e) => e.passed).length;
+          const totalScore = completedExams.reduce(
+            (acc, curr) => acc + (Number(curr.score) || 0),
+            0
+          );
           setStats({
-            totalAttempted: data.length, passed: passedCount, failed: completedExams.length - passedCount,
-            averageScore: completedExams.length > 0 ? Math.round(totalScore / completedExams.length) : 0,
+            totalAttempted: data.length,
+            passed: passedCount,
+            failed: completedExams.length - passedCount,
+            averageScore:
+              completedExams.length > 0 ? Math.round(totalScore / completedExams.length) : 0,
           });
           setHistory(data);
         }
@@ -51,35 +69,86 @@ export default function ProfileScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
-      <View className="px-6 py-4 flex-row items-center border-b border-slate-200 bg-white shadow-sm z-10">
-        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.replace('Dashboard')} className="p-2 -ml-2">
+      <View className="z-10 flex-row items-center border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
+        <TouchableOpacity
+          onPress={() =>
+            navigation.canGoBack() ? navigation.goBack() : navigation.replace('Dashboard')
+          }
+          className="-ml-2 p-2">
           <ChevronLeft size={24} color="#334155" />
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-slate-800 ml-2">My Profile</Text>
+        <Text className="ml-2 text-xl font-bold text-slate-800">My Profile</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 24 }}>
-        <View className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 items-center relative">
-          <TouchableOpacity 
-            onPress={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-            className="absolute top-4 right-4 p-2 bg-slate-50 rounded-full border border-slate-200"
-          >
-            {isEditing ? <Check size={18} color="#10b981" /> : <Edit2 size={18} color="#64748b" />}
+        <View className="relative mb-6 items-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <TouchableOpacity
+            onPress={() => (isEditing ? handleSaveProfile() : setIsEditing(true))}
+            className="absolute right-4 top-4 rounded-full border border-slate-200 bg-slate-50 p-2">
+            {isEditing ? (
+              <View className="mt-2 w-full space-y-3">
+                <TextInput
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="First Name"
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800"
+                />
+                <TextInput
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Last Name"
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800"
+                />
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Phone Number"
+                  keyboardType="phone-pad"
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800"
+                />
+              </View>
+            ) : (
+              <View className="items-center">
+                <Text className="text-xl font-bold text-slate-800">
+                  {firstName} {lastName}
+                </Text>
+                <Text className="mt-1 text-sm font-medium text-slate-500">
+                  {session?.user?.email}
+                </Text>
+                {session?.user?.user_metadata?.phone && (
+                  <Text className="mt-1 text-xs text-slate-400">
+                    {session?.user?.user_metadata?.phone}
+                  </Text>
+                )}
+              </View>
+            )}{' '}
           </TouchableOpacity>
 
-          <View className="bg-blue-50 p-4 rounded-full mb-4 border border-blue-100">
+          <View className="mb-4 rounded-full border border-blue-100 bg-blue-50 p-4">
             <User size={40} color="#3b82f6" />
           </View>
 
           {isEditing ? (
-            <View className="w-full space-y-3 mt-2">
-              <TextInput value={firstName} onChangeText={setFirstName} placeholder="First Name" className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center font-bold text-slate-800" />
-              <TextInput value={lastName} onChangeText={setLastName} placeholder="Last Name" className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center font-bold text-slate-800" />
+            <View className="mt-2 w-full space-y-3">
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First Name"
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center font-bold text-slate-800"
+              />
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last Name"
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center font-bold text-slate-800"
+              />
             </View>
           ) : (
-            <Text className="text-xl font-bold text-slate-800">{firstName} {lastName}</Text>
+            <Text className="text-xl font-bold text-slate-800">
+              {firstName} {lastName}
+            </Text>
           )}
-          <Text className="text-slate-500 font-medium text-sm mt-1">{session?.user?.email}</Text>
+          <Text className="mt-1 text-sm font-medium text-slate-500">{session?.user?.email}</Text>
         </View>
 
         {/* ... (The rest of your Performance Metrics & History UI stays exactly the same) */}
