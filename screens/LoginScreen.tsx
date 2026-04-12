@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ShieldCheck, Mail, Lock } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,20 +37,24 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView className="flex-1 bg-exam-bg">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center px-8">
-        <View className="items-center mb-10">
-          <View className="bg-exam-accent/30 p-4 rounded-full mb-4">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1 justify-center px-8">
+        <View className="mb-10 items-center">
+          <View className="mb-4 rounded-full bg-exam-accent/30 p-4">
             <ShieldCheck size={48} color="#4338ca" />
           </View>
           <Text className="text-3xl font-bold text-exam-dark">SecurePortal</Text>
-          <Text className="text-slate-500 mt-2 text-center">Sign in to access your proctored examinations.</Text>
+          <Text className="mt-2 text-center text-slate-500">
+            Sign in to access your proctored examinations.
+          </Text>
         </View>
 
         <View className="space-y-4">
-          <View className="bg-white flex-row items-center border border-slate-200 rounded-xl px-4 h-14 shadow-sm">
+          <View className="h-14 flex-row items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm">
             <Mail size={20} color="#94a3b8" />
             <TextInput
-              className="flex-1 ml-3 text-base text-slate-800"
+              className="ml-3 flex-1 text-base text-slate-800"
               placeholder="Student Email"
               placeholderTextColor="#94a3b8"
               autoCapitalize="none"
@@ -52,10 +64,10 @@ export default function LoginScreen({ navigation }: Props) {
             />
           </View>
 
-          <View className="bg-white flex-row items-center border border-slate-200 rounded-xl px-4 h-14 shadow-sm mt-4">
+          <View className="mt-4 h-14 flex-row items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm">
             <Lock size={20} color="#94a3b8" />
             <TextInput
-              className="flex-1 ml-3 text-base text-slate-800"
+              className="ml-3 flex-1 text-base text-slate-800"
               placeholder="Password"
               placeholderTextColor="#94a3b8"
               secureTextEntry
@@ -64,22 +76,25 @@ export default function LoginScreen({ navigation }: Props) {
             />
           </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} className="self-end mt-2">
-            <Text className="text-exam-primary font-semibold text-sm">Forgot Password?</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ForgotPassword')}
+            className="mt-2 self-end">
+            <Text className="text-sm font-semibold text-exam-primary">Forgot Password?</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
-            className={`mt-6 h-14 rounded-xl justify-center items-center shadow-md ${loading ? 'bg-indigo-400' : 'bg-exam-primary'}`}
-          >
-            <Text className="text-white font-bold text-lg">{loading ? 'Authenticating...' : 'Secure Login'}</Text>
+            className={`mt-6 h-14 items-center justify-center rounded-xl shadow-md ${loading ? 'bg-indigo-400' : 'bg-exam-primary'}`}>
+            <Text className="text-lg font-bold text-white">
+              {loading ? 'Authenticating...' : 'Secure Login'}
+            </Text>
           </TouchableOpacity>
 
-          <View className="flex-row justify-center mt-6">
-            <Text className="text-slate-500">Don't have an account? </Text>
+          <View className="mt-6 flex-row justify-center">
+            <Text className="text-slate-500">Don&apos;t have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text className="text-exam-primary font-bold">Register</Text>
+              <Text className="font-bold text-exam-primary">Register</Text>
             </TouchableOpacity>
           </View>
         </View>

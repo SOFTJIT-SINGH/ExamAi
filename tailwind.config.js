@@ -2,10 +2,10 @@
 module.exports = {
   // Added app and screens directories
   content: [
-    './App.{js,ts,tsx}', 
+    './App.{js,ts,tsx}',
     './components/**/*.{js,ts,tsx}',
     './screens/**/*.{js,ts,tsx}',
-    './app/**/*.{js,ts,tsx}'
+    './app/**/*.{js,ts,tsx}',
   ],
   presets: [require('nativewind/preset')],
   theme: {
@@ -17,8 +17,8 @@ module.exports = {
           primary: '#4338ca', // Indigo 600
           accent: '#e0e7ff', // Indigo 100
           bg: '#f8fafc', // Slate 50
-        }
-      }
+        },
+      },
     },
   },
   plugins: [],

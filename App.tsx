@@ -1,4 +1,4 @@
-import './global.css'; 
+import './global.css';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -14,8 +14,10 @@ import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import ActiveExamScreen from './screens/ActiveExamScreen';
 import ProfileScreen from './screens/ProfileScreen';
-import GradingScreen from './screens/GradingScreen'; 
-import ResultScreen from './screens/ResultScreen';   
+import GradingScreen from './screens/GradingScreen';
+import ResultScreen from './screens/ResultScreen';
+
+import ContributeScreen from './screens/ContributeScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -25,23 +27,25 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   Dashboard: undefined;
   Profile: undefined;
-  ActiveExam: { examId: string; limit?: number }; // <-- Added limit
+  Contribute: undefined;
+  ActiveExam: { examId: string; limit?: number };
   Grading: { examId: string };
-  // UPDATE: Added reviewAnswers for Study Mode
-  Result: { examId: string; reviewAnswers?: Record<string, number> }; 
+  Result: { examId: string; reviewAnswers?: Record<string, number> };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const SplashScreen = () => (
-  <View className="flex-1 bg-slate-50 justify-center items-center">
+  <View className="flex-1 items-center justify-center bg-slate-50">
     <ActivityIndicator size="large" color="#3b82f6" />
   </View>
 );
 
 export default function App() {
   const { session, isLoading, initializeAuth } = useAuthStore();
-  useEffect(() => { initializeAuth(); }, [initializeAuth]);
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <SafeAreaProvider>
@@ -54,9 +58,14 @@ export default function App() {
             <Stack.Group>
               <Stack.Screen name="Dashboard" component={DashboardScreen} />
               <Stack.Screen name="Profile" component={ProfileScreen} />
+              <Stack.Screen name="Contribute" component={ContributeScreen} />
               <Stack.Screen name="Grading" component={GradingScreen} />
               <Stack.Screen name="Result" component={ResultScreen} />
-              <Stack.Screen name="ActiveExam" component={ActiveExamScreen} options={{ gestureEnabled: false }} />
+              <Stack.Screen
+                name="ActiveExam"
+                component={ActiveExamScreen}
+                options={{ gestureEnabled: false }}
+              />
             </Stack.Group>
           ) : (
             <Stack.Group>

@@ -5,11 +5,16 @@ export interface AuthState {
   session: Session | null;
   isLoading: boolean;
   initializeAuth: () => Promise<void>;
-  
-  // FIXED: Added firstName and lastName to the blueprint
-  signUp: (email: string, password: string, firstName: string, lastName?: string) => Promise<any>;
+  signUp: (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName?: string,
+    phone?: string
+  ) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
+  updateUserProfile: (firstName: string, lastName: string, phone?: string) => Promise<void>;
 }
 
 export interface Question {
@@ -28,8 +33,6 @@ export interface ExamState {
   timeRemaining: number;
   isSubmitted: boolean;
   isLoading: boolean;
-
-  // FIXED: Added the optional limit parameter
   fetchExamData: (examId: string, limit?: number) => Promise<void>;
   selectAnswer: (questionId: string, optionIndex: number) => void;
   nextQuestion: () => void;

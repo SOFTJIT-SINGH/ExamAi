@@ -1,5 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyRound, ChevronLeft } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,12 +21,12 @@ const OTP_LENGTH = 6;
 
 export default function OTPScreen({ route, navigation }: Props) {
   const { email } = route.params;
-  
+
   // Array to hold the 6 digits
   const [otp, setOtp] = useState<string[]>(new Array(OTP_LENGTH).fill(''));
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [loading, setLoading] = useState(false);
-  
+
   // Array of refs to manage focus between the 6 boxes
   const inputRefs = useRef<TextInput[]>([]);
 
@@ -25,7 +34,7 @@ export default function OTPScreen({ route, navigation }: Props) {
     const newOtp = [...otp];
     // Only allow numbers
     const cleanText = text.replace(/[^0-9]/g, '');
-    
+
     newOtp[index] = cleanText;
     setOtp(newOtp);
 
@@ -44,7 +53,7 @@ export default function OTPScreen({ route, navigation }: Props) {
 
   const handleVerify = async () => {
     const token = otp.join('');
-    
+
     if (token.length < OTP_LENGTH) {
       return Alert.alert('Error', 'Please enter the complete 6-digit code.');
     }
@@ -66,36 +75,40 @@ export default function OTPScreen({ route, navigation }: Props) {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-exam-bg relative">
-      <TouchableOpacity onPress={() => navigation.goBack()} className="absolute top-12 left-6 z-10 p-2 bg-white rounded-full shadow-sm border border-slate-100">
+    <SafeAreaView className="relative flex-1 bg-exam-bg">
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        className="absolute left-6 top-12 z-10 rounded-full border border-slate-100 bg-white p-2 shadow-sm">
         <ChevronLeft size={24} color="#1e1b4b" />
       </TouchableOpacity>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center px-6">
-        <View className="items-center mb-10">
-          <View className="bg-exam-accent/30 p-4 rounded-full mb-5">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1 justify-center px-6">
+        <View className="mb-10 items-center">
+          <View className="mb-5 rounded-full bg-exam-accent/30 p-4">
             <KeyRound size={42} color="#4338ca" />
           </View>
           <Text className="text-3xl font-bold text-exam-dark">Verification</Text>
-          <Text className="text-slate-500 mt-3 text-center text-base px-4 leading-relaxed">
+          <Text className="mt-3 px-4 text-center text-base leading-relaxed text-slate-500">
             Enter the 6-digit code sent to{'\n'}
             <Text className="font-bold text-slate-800">{email}</Text>
           </Text>
         </View>
 
         {/* The Split OTP Input Grid */}
-        <View className="flex-row justify-center items-center space-x-2 mb-8 gap-x-2">
+        <View className="mb-8 flex-row items-center justify-center gap-x-2 space-x-2">
           {otp.map((digit, index) => (
             <TextInput
               key={index}
               ref={(ref) => {
                 if (ref) inputRefs.current[index] = ref;
               }}
-              className={`w-12 h-14 border-2 rounded-xl text-center text-2xl font-bold shadow-sm transition-all ${
-                activeIndex === index 
-                  ? 'border-exam-primary bg-exam-accent/10' 
-                  : digit 
-                    ? 'border-slate-300 bg-white' 
+              className={`h-14 w-12 rounded-xl border-2 text-center text-2xl font-bold shadow-sm transition-all ${
+                activeIndex === index
+                  ? 'border-exam-primary bg-exam-accent/10'
+                  : digit
+                    ? 'border-slate-300 bg-white'
                     : 'border-slate-200 bg-slate-50'
               } ${digit ? 'text-exam-dark' : 'text-slate-400'}`}
               keyboardType="number-pad"
@@ -113,24 +126,22 @@ export default function OTPScreen({ route, navigation }: Props) {
         <TouchableOpacity
           onPress={handleVerify}
           disabled={loading || otp.join('').length !== OTP_LENGTH}
-          className={`h-14 rounded-xl justify-center items-center shadow-md ${
-            loading || otp.join('').length !== OTP_LENGTH 
-              ? 'bg-indigo-300 shadow-none' 
+          className={`h-14 items-center justify-center rounded-xl shadow-md ${
+            loading || otp.join('').length !== OTP_LENGTH
+              ? 'bg-indigo-300 shadow-none'
               : 'bg-exam-primary shadow-indigo-200'
-          }`}
-        >
-          <Text className="text-white font-bold text-lg tracking-wide">
+          }`}>
+          <Text className="text-lg font-bold tracking-wide text-white">
             {loading ? 'Verifying...' : 'Confirm Identity'}
           </Text>
         </TouchableOpacity>
 
-        <View className="flex-row justify-center mt-8">
-          <Text className="text-slate-500 font-medium">Didn't receive the code? </Text>
-          <TouchableOpacity onPress={() => Alert.alert("Sent", "A new code has been requested.")}>
-            <Text className="text-exam-primary font-bold">Resend</Text>
+        <View className="mt-8 flex-row justify-center">
+          <Text className="font-medium text-slate-500">Didn&apos;t receive the code? </Text>
+          <TouchableOpacity onPress={() => Alert.alert('Sent', 'A new code has been requested.')}>
+            <Text className="font-bold text-exam-primary">Resend</Text>
           </TouchableOpacity>
         </View>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

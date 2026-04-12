@@ -9,9 +9,7 @@
     "experiments": {
       "tsconfigPaths": true
     },
-    "plugins": [
-      
-    ],
+    "plugins": [],
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -20,9 +18,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },

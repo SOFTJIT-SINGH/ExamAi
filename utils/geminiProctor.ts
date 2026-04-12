@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // Expo requires the EXPO_PUBLIC_ prefix to read env variables on the client
-const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(apiKey);
 
 export type ProctorResult = {
@@ -12,18 +12,27 @@ export type ProctorResult = {
 
 export const analyzeProctorFrame = async (base64Image: string): Promise<ProctorResult> => {
   if (!apiKey) {
-    throw new Error("Missing EXPO_PUBLIC_GEMINI_API_KEY in .env file");
+    throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY in .env file');
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     // Turn off safety filters so it doesn't refuse to analyze the webcam
     const safetySettings = [
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      {
+        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
+      {
+        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold: HarmBlockThreshold.BLOCK_NONE,
+      },
     ];
 
     const prompt = `You are a strict AI exam proctor. Analyze this webcam frame of a student.
@@ -39,25 +48,26 @@ Mark "violation": true IF ANY of the following occur:
 If the student is looking directly at the camera/screen normally, return "violation": false.`;
 
     const result = await model.generateContent({
-      contents: [{ role: "user", parts: [
-        { text: prompt }, 
-        { inlineData: { data: base64Image, mimeType: "image/jpeg" } }
-      ]}],
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }, { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }],
+        },
+      ],
       safetySettings,
     });
 
     const responseText = result.response.text();
-    
+
     // Bulletproof JSON extractor (ignores any conversational text the AI might add)
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error("AI did not return valid JSON.");
+      throw new Error('AI did not return valid JSON.');
     }
 
     return JSON.parse(jsonMatch[0]) as ProctorResult;
-
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error('Gemini API Error:', error);
     throw error; // Throw it so the hook can catch it and alert you!
   }
 };
