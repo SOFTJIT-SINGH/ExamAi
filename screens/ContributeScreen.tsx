@@ -5,6 +5,7 @@ import { BookOpen, HelpCircle, Save, ChevronLeft, PlusCircle, Trash2, Edit2, Lay
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { supabase } from '../utils/supabase';
+import { useAuthStore } from '../store/useAuthStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Contribute'>;
 
@@ -35,6 +36,9 @@ export default function ContributeScreen({ navigation }: Props) {
   // Manage State
   const [existingQuestions, setExistingQuestions] = useState<any[]>([]);
   const [loadingManage, setLoadingManage] = useState(false);
+
+  const { session } = useAuthStore();
+  const currentUserId = session?.user?.id;
 
   // Fetch Exams when Category changes
   useEffect(() => {
@@ -106,15 +110,20 @@ export default function ContributeScreen({ navigation }: Props) {
     
     setLoading(true);
     
-    const inserts = questionsForm.map(q => ({
-      exam_id: selectedExamId,
-      text: q.text,
-      options: q.options,
-      correct_option_index: q.correctOption,
-      explanation: q.explanation || null,
-    }));
+    const inserts = questionsForm.map(q => {
+      const payload: any = {
+        exam_id: selectedExamId,
+        user_id: currentUserId,
+        text: q.text,
+        options: q.options,
+        correct_option_index: q.correctOption,
+        explanation: q.explanation || null,
+      };
+      if (q.id) payload.id = q.id;
+      return payload;
+    });
 
-    const { error } = await supabase.from('questions').insert(inserts);
+    const { error } = await supabase.from('questions').upsert(inserts);
     setLoading(false);
 
     if (error) {
@@ -126,7 +135,11 @@ export default function ContributeScreen({ navigation }: Props) {
     }
   };
 
-  const deleteQuestion = async (id: string) => {
+  const deleteQuestion = async (id: string, authorId?: string) => {
+    if (authorId !== currentUserId) {
+        Alert.alert("Unauthorized", "You can only delete your posted questions.");
+        return;
+    }
     Alert.alert("Delete", "Are you sure you want to delete this question?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
@@ -285,7 +298,7 @@ export default function ContributeScreen({ navigation }: Props) {
                 ) : (
                   <>
                     <Save size={20} color="#fff" style={{ marginRight: 8 }} />
-                    <Text className="text-white font-bold text-lg">Post All Questions</Text>
+                    <Text className="text-white font-bold text-lg">Save Questions</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -311,11 +324,24 @@ export default function ContributeScreen({ navigation }: Props) {
                                   ))}
                               </View>
                               <View className="flex-row justify-end space-x-3">
-                                  <TouchableOpacity onPress={() => Alert.alert("Coming Soon", "Edit integration API mapping required via Supabase.")} className="flex-row items-center border border-slate-200 px-3 py-2 rounded-lg bg-slate-50">
+                                  <TouchableOpacity onPress={() => {
+                                      if (eq.user_id !== currentUserId) {
+                                          Alert.alert("Unauthorized", "You can only edit your posted questions.");
+                                      } else {
+                                          setQuestionsForm([{
+                                              id: eq.id,
+                                              text: eq.text,
+                                              options: [...eq.options],
+                                              correctOption: eq.correct_option_index,
+                                              explanation: eq.explanation || ''
+                                          }]);
+                                          setActiveTab('create');
+                                      }
+                                  }} className="flex-row items-center border border-slate-200 px-3 py-2 rounded-lg bg-slate-50">
                                       <Edit2 size={16} color="#64748b" />
                                       <Text className="text-slate-600 font-bold text-xs ml-2">Edit</Text>
                                   </TouchableOpacity>
-                                  <TouchableOpacity onPress={() => deleteQuestion(eq.id)} className="flex-row items-center border border-red-200 px-3 py-2 rounded-lg bg-red-50">
+                                  <TouchableOpacity onPress={() => deleteQuestion(eq.id, eq.user_id)} className="flex-row items-center border border-red-200 px-3 py-2 rounded-lg bg-red-50">
                                       <Trash2 size={16} color="#ef4444" />
                                       <Text className="text-red-600 font-bold text-xs ml-2">Delete</Text>
                                   </TouchableOpacity>
