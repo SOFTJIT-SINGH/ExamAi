@@ -8,6 +8,7 @@ import {
   Modal,
   ScrollView,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FileText, ChevronRight, LogOut, ShieldCheck, User, X, PlusCircle, LayoutDashboard } from 'lucide-react-native';
@@ -23,6 +24,7 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
   const [exams, setExams] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
 
   // Preflight Modal State
@@ -32,33 +34,52 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
   const { session, userProfile, signOut } = useAuthStore();
   const firstName = userProfile?.first_name || 'Student';
 
+  const fetchData = async () => {
+    setLoading(true);
+    console.log('--- Student Dashboard: Fetching Data ---');
+
+    try {
+      // 1. Fetch Categories
+      const { data: catData, error: catErr } = await supabase.from('categories').select('name').order('name');
+      if (catErr) console.error('Dashboard Categories Error:', catErr);
+      if (catData) {
+        console.log('Fetched Categories:', catData.length);
+        setCategories(['All', ...catData.map(c => c.name)]);
+      }
+
+      // 2. Fetch exams WITH the question count
+      const { data, error } = await supabase
+        .from('exams')
+        .select('*, questions(count)')
+        .order('title');
+
+      if (error) {
+        console.warn('Join query failed, trying simple fetch...', error.message);
+        const { data: simpleData, error: simpleErr } = await supabase.from('exams').select('*').order('title');
+        if (simpleErr) console.error('Dashboard Exams Error:', simpleErr);
+        if (simpleData) {
+          console.log('Fetched Exams (Simple):', simpleData.length);
+          setExams(simpleData);
+        }
+      } else if (data) {
+        console.log('Fetched Exams (Joined):', data.length);
+        setExams(data);
+      }
+    } catch (err) {
+      console.error('Dashboard Catch Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
   useFocusEffect(
     useCallback(() => {
-      const fetchData = async () => {
-        setLoading(true);
-
-        // 1. Fetch Categories
-        const { data: catData } = await supabase.from('categories').select('name').order('name');
-        if (catData) {
-          setCategories(['All', ...catData.map(c => c.name)]);
-        }
-
-        // 2. Fetch exams WITH the question count
-        const { data, error } = await supabase
-          .from('exams')
-          .select('*, questions(count)')
-          .order('title');
-
-        if (error) {
-          console.error('Dashboard Fetch Error:', error);
-          const fallback = await supabase.from('exams').select('*').order('title');
-          if (fallback.data) setExams(fallback.data);
-        } else if (data) {
-          setExams(data);
-        }
-
-        setLoading(false);
-      };
       fetchData();
     }, [])
   );
@@ -151,6 +172,9 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
           data={filteredExams}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 24 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
+          }
           renderItem={({ item }) => {
             // Safe fallback if questions array is missing or empty
             const questionCount =

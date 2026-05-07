@@ -9,6 +9,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -40,6 +41,7 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategory, setNewCategory] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   // New Exam Modal State
   const [showExamModal, setShowExamModal] = useState(false);
@@ -122,6 +124,12 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchData();
@@ -132,6 +140,25 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
     Alert.alert('Sign Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Log Out', style: 'destructive', onPress: signOut },
+    ]);
+  };
+
+  const removeStudent = async (id: string, name: string) => {
+    Alert.alert('Delete Student', `Are you sure you want to remove ${name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Delete', 
+        style: 'destructive', 
+        onPress: async () => {
+          const { error } = await supabase.from('profiles').delete().eq('id', id);
+          if (error) {
+            Alert.alert('Error', error.message);
+          } else {
+            setStudents(students.filter(s => s.id !== id));
+            setStats(prev => ({ ...prev, totalStudents: prev.totalStudents - 1 }));
+          }
+        } 
+      }
     ]);
   };
 
@@ -205,7 +232,12 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
   };
 
   const renderOverview = () => (
-    <ScrollView contentContainerStyle={{ padding: 24 }}>
+    <ScrollView 
+      contentContainerStyle={{ padding: 24 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
+      }
+    >
       <View className="flex-row flex-wrap justify-between">
         <TouchableOpacity 
           onPress={() => setActiveTab('students')}
@@ -238,7 +270,9 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
               <Text className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalQuestions}</Text>
             </View>
             <View className="bg-green-50 w-12 h-12 rounded-2xl items-center justify-center">
-              <PlusCircle size={28} color="#10b981" />
+              <TouchableOpacity onPress={() => navigation.navigate('Contribute')}>
+                <PlusCircle size={28} color="#10b981" />
+              </TouchableOpacity>
             </View>
           </View>
           <TouchableOpacity 
@@ -249,8 +283,6 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
             <ChevronRight size={18} color="#fff" />
           </TouchableOpacity>
         </View>
-
-
       </View>
 
       <Text className="text-lg font-bold text-slate-800 mb-4">Quick Actions</Text>
@@ -324,6 +356,9 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
           data={students}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 24 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
+          }
           renderItem={({ item }) => (
             <View className="bg-white border border-slate-200 p-5 rounded-3xl mb-4 shadow-sm">
               <View className="flex-row items-center justify-between mb-4">
@@ -429,6 +464,9 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
           data={exams}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 24 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
+          }
           renderItem={({ item }) => (
             <View className="bg-white border border-slate-200 p-4 rounded-2xl mb-3 flex-row items-center justify-between">
               <View className="flex-1">
@@ -471,6 +509,9 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
             data={categories}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ padding: 24 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
+            }
             renderItem={({ item }) => (
               <View className="bg-white border border-slate-200 p-4 rounded-2xl mb-3 flex-row items-center justify-between">
                 <Text className="font-bold text-slate-800 text-base">{item.name}</Text>

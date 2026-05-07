@@ -16,7 +16,7 @@ export const analyzeProctorFrame = async (base64Image: string): Promise<ProctorR
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
     // Turn off safety filters so it doesn't refuse to analyze the webcam
     const safetySettings = [

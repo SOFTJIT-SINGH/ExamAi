@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, User, Award, Target, BookOpen, Edit2, Check } from 'lucide-react-native';
@@ -23,6 +24,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalAttempted: 0, passed: 0, failed: 0, averageScore: 0 });
   const [history, setHistory] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
@@ -30,35 +32,56 @@ export default function ProfileScreen({ navigation }: Props) {
   const [lastName, setLastName] = useState(session?.user?.user_metadata?.last_name || '');
   const [phone, setPhone] = useState(session?.user?.user_metadata?.phone || ''); // NEW PHONE STATE
 
+  const fetchProfileData = async () => {
+    if (!session?.user) return;
+    setLoading(true);
+
+    // 1. Fetch Latest Profile Info
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profileData) {
+      setFirstName(profileData.first_name || '');
+      setLastName(profileData.last_name || '');
+      setPhone(profileData.phone || '');
+    }
+
+    // 2. Fetch Exam Results
+    const { data } = await supabase
+      .from('exam_results')
+      .select(`*, exams(title)`)
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      const completedExams = data.filter((e) => e.status === 'completed' || !e.status);
+      const totalScore = completedExams.reduce(
+        (acc, curr) => acc + (Number(curr.score) || 0),
+        0
+      );
+      setStats({
+        totalAttempted: data.length,
+        passed: 0, 
+        failed: 0,
+        averageScore:
+          completedExams.length > 0 ? Math.round(totalScore / completedExams.length) : 0,
+      });
+      setHistory(data);
+    }
+    setLoading(false);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfileData();
+    setRefreshing(false);
+  };
+
   useFocusEffect(
     useCallback(() => {
-      const fetchProfileData = async () => {
-        if (!session?.user) return;
-        setLoading(true);
-        const { data } = await supabase
-          .from('exam_results')
-          .select(`*, exams(title)`)
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false });
-
-        if (data && data.length > 0) {
-          const completedExams = data.filter((e) => e.status === 'completed' || !e.status);
-          const passedCount = completedExams.filter((e) => e.passed).length;
-          const totalScore = completedExams.reduce(
-            (acc, curr) => acc + (Number(curr.score) || 0),
-            0
-          );
-          setStats({
-            totalAttempted: data.length,
-            passed: passedCount,
-            failed: completedExams.length - passedCount,
-            averageScore:
-              completedExams.length > 0 ? Math.round(totalScore / completedExams.length) : 0,
-          });
-          setHistory(data);
-        }
-        setLoading(false);
-      };
       fetchProfileData();
     }, [session])
   );
@@ -91,7 +114,12 @@ export default function ProfileScreen({ navigation }: Props) {
         <Text className="ml-2 text-xl font-bold text-slate-800">My Profile</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 24 }}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 24 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
+        }
+      >
         <View className="relative mb-6 items-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <TouchableOpacity
             onPress={() => (isEditing ? handleSaveProfile() : setIsEditing(true))}
@@ -176,7 +204,8 @@ export default function ProfileScreen({ navigation }: Props) {
               history.map((result) => {
                 const isCancelled = result.status === 'cancelled';
                 const isTerminated = result.status === 'terminated';
-                const leftBlank = result.total_questions - (result.attempted_questions || 0);
+                const score = result.score || 0;
+                const formattedDate = new Date(result.created_at).toLocaleDateString();
 
                 return (
                   <TouchableOpacity
@@ -199,7 +228,7 @@ export default function ProfileScreen({ navigation }: Props) {
                             ? 'border-orange-200 bg-orange-100'
                             : isTerminated
                               ? 'border-red-300 bg-red-100'
-                              : result.passed
+                              : score >= 60
                                 ? 'border-green-200 bg-green-100'
                                 : 'border-red-200 bg-red-50'
                         }`}>
@@ -209,7 +238,7 @@ export default function ProfileScreen({ navigation }: Props) {
                               ? 'text-orange-700'
                               : isTerminated
                                 ? 'text-red-700'
-                                : result.passed
+                                : score >= 60
                                   ? 'text-green-700'
                                   : 'text-red-600'
                           }`}>
@@ -217,23 +246,14 @@ export default function ProfileScreen({ navigation }: Props) {
                             ? 'TERMINATED'
                             : isCancelled
                               ? 'CANCELLED'
-                              : `${result.score}%`}
+                              : `${score}%`}
                         </Text>
                       </View>
                     </View>
                     <View className="flex-row items-center justify-between border-t border-slate-100 pt-3">
-                      <Text className="text-sm text-slate-500">
-                        Answered:{' '}
-                        <Text className="font-semibold text-slate-800">
-                          {result.attempted_questions || 0}
-                        </Text>{' '}
-                        / {result.total_questions}
-                      </Text>
-                      <Text className="text-sm text-slate-500">
-                        Blank:{' '}
-                        <Text className="font-semibold text-red-500">
-                          {leftBlank > 0 ? leftBlank : 0}
-                        </Text>
+                      <Text className="text-xs text-slate-400 font-medium">{formattedDate}</Text>
+                      <Text className="text-xs font-bold text-slate-500 uppercase">
+                        {score >= 60 ? 'Passed' : score > 0 ? 'Failed' : 'No Score'}
                       </Text>
                     </View>
                   </TouchableOpacity>

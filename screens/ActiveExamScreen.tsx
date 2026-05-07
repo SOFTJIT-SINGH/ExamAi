@@ -25,6 +25,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
 
   // NEW: 3 Strikes State
   const [, setStrikes] = useState(0);
+  const [isManualStop, setIsManualStop] = useState(false);
 
   const {
     questions,
@@ -32,6 +33,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     answers,
     timeRemaining,
     isLoading,
+    isSubmitted,
     fetchExamData,
     selectAnswer,
     nextQuestion,
@@ -55,7 +57,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     return () => clearInterval(timer);
   }, [isLoading, permission?.granted, tick]);
 
-  const isProctoringActive = !!permission?.granted && !isLoading && timeRemaining > 0;
+  const isProctoringActive = !!permission?.granted && !isLoading && !isSubmitted && !isManualStop && timeRemaining > 0;
 
   useProctoring(cameraRef, isProctoringActive, 10000, (result) => {
     logViolation(examId, result);
@@ -146,8 +148,15 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
       {
         text: 'Submit',
         style: 'default',
-        onPress: () => {
-          navigation.replace('Grading', { examId });
+        onPress: async () => {
+          setIsManualStop(true); // Kill camera instantly
+          try {
+            await submitExam(examId, 'completed');
+            navigation.replace('Result', { examId, reviewAnswers: answers });
+          } catch (error) {
+            console.error('Submission failed:', error);
+            navigation.replace('Result', { examId, reviewAnswers: answers });
+          }
         },
       },
     ]);
@@ -195,13 +204,15 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView className="relative flex-1 bg-slate-50">
       <View className="absolute right-4 top-16 z-50 h-32 w-24 overflow-hidden rounded-xl border-2 border-slate-200 bg-black shadow-sm">
-        <CameraView
-          ref={cameraRef}
-          style={{ flex: 1 }}
-          facing="front"
-          mute={true}
-          animateShutter={false}
-        />
+        {isProctoringActive && (
+          <CameraView
+            ref={cameraRef}
+            style={{ flex: 1 }}
+            facing="front"
+            mute={true}
+            animateShutter={false}
+          />
+        )}
       </View>
 
       <View className="flex-1">

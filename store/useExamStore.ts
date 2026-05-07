@@ -98,9 +98,14 @@ export const useExamStore = create<ExamState>((set, get) => ({
           exam_id: examId,
           score: scorePercentage,
           status: status,
+          answers: answers, // SAVE THE ANSWERS FOR REVIEW
         });
 
-        if (error) Alert.alert('Database Error', `Failed to save exam: ${error.message}`);
+        if (error) {
+          Alert.alert('Database Error', `Failed to save exam: ${error.message}`);
+        } else {
+          set({ isSubmitted: true });
+        }
       }
     } catch (error) {
       console.error('Failed to save result:', error);

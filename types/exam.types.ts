@@ -9,6 +9,19 @@ export interface UserProfile {
   role: 'student' | 'admin';
 }
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  created_at?: string;
+}
+
 export interface AuthState {
   session: Session | null;
   userProfile: UserProfile | null;
@@ -29,7 +42,7 @@ export interface AuthState {
 export interface Question {
   id: string;
   exam_id: string;
-  text: string;
+  question_text: string;
   options: string[];
   correct_option_index: number;
   explanation?: string;

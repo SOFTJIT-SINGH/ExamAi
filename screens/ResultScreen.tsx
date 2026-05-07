@@ -75,7 +75,7 @@ export default function ResultScreen({ route, navigation }: Props) {
                 Question {index + 1}
               </Text>
               <Text className="mb-5 text-lg font-bold leading-relaxed text-slate-800">
-                {q.text}
+                {q.question_text}
               </Text>
 
               <View className="mb-4">
