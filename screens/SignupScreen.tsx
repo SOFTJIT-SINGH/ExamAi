@@ -37,8 +37,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
     try {
       await signUp(email, password, firstName, lastName, phone);
-      Alert.alert('Success', 'Account created! Please verify your email.');
-      navigation.navigate('Login');
+      Alert.alert('OTP sent', 'Please verify your email through otp.');
+      navigation.navigate('OTP', { email: email.trim() });
     } catch (error: any) {
       Alert.alert('Signup Failed', error.message);
     }
@@ -55,7 +55,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         </Text>
 
         <View className="space-y-4">
-          <View className="flex-row items-center rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <View className="flex-row items-center mb-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <UserIcon size={20} color="#94a3b8" />
             <TextInput
               placeholder="First Name *"
@@ -66,7 +66,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             />
           </View>
 
-          <View className="flex-row items-center rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <View className="flex-row items-center mb-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <UserIcon size={20} color="#94a3b8" />
             <TextInput
               placeholder="Last Name (Optional)"
@@ -78,7 +78,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
           </View>
 
           {/* NEW PHONE FIELD */}
-          <View className="flex-row items-center rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <View className="flex-row items-center mb-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <Phone size={20} color="#94a3b8" />
             <TextInput
               placeholder="Phone Number (Optional)"
@@ -90,7 +90,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             />
           </View>
 
-          <View className="flex-row items-center rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <View className="flex-row items-center mb-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <Mail size={20} color="#94a3b8" />
             <TextInput
               placeholder="Email Address *"
@@ -103,7 +103,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
             />
           </View>
 
-          <View className="flex-row items-center rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <View className="flex-row items-center mb-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <Lock size={20} color="#94a3b8" />
             <TextInput
               placeholder="Password *"

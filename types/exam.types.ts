@@ -1,8 +1,17 @@
 import { Session } from '@supabase/supabase-js';
 import { ProctorResult } from '../utils/geminiProctor';
 
+export interface UserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  role: 'student' | 'admin';
+}
+
 export interface AuthState {
   session: Session | null;
+  userProfile: UserProfile | null;
   isLoading: boolean;
   initializeAuth: () => Promise<void>;
   signUp: (

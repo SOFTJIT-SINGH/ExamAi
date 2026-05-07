@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FileText, ChevronRight, LogOut, ShieldCheck, User, X, PlusCircle } from 'lucide-react-native';
+import { FileText, ChevronRight, LogOut, ShieldCheck, User, X, PlusCircle, LayoutDashboard } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
@@ -30,8 +30,8 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
   const [selectedExam, setSelectedExam] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const { session, signOut } = useAuthStore();
-  const firstName = session?.user?.user_metadata?.first_name || 'Student';
+  const { session, userProfile, signOut } = useAuthStore();
+  const firstName = userProfile?.first_name || 'Student';
 
   useFocusEffect(
     useCallback(() => {
@@ -66,6 +66,13 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
   const filteredExams =
     activeCategory === 'All' ? exams : exams.filter((e) => e.category === activeCategory);
 
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: signOut },
+    ]);
+  };
+
   const openPreflight = (exam: any) => {
     setSelectedExam(exam);
     setModalVisible(true);
@@ -90,17 +97,19 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
         </View>
         <View className="flex-row items-center space-x-3">
           <TouchableOpacity
-            onPress={() => navigation.navigate('Contribute')}
-            className="mr-2 rounded-full border border-indigo-100 bg-indigo-50 p-2">
-            <PlusCircle size={22} color="#4338ca" />
-          </TouchableOpacity>
-          <TouchableOpacity
             onPress={() => navigation.navigate('Profile')}
             className="mr-2 rounded-full border border-blue-100 bg-blue-50 p-2">
             <User size={22} color="#3b82f6" />
           </TouchableOpacity>
+          {userProfile?.role === 'admin' && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AdminDashboard')}
+              className="mr-2 rounded-full border border-indigo-100 bg-indigo-50 p-2">
+              <LayoutDashboard size={22} color="#4f46e5" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            onPress={signOut}
+            onPress={handleLogout}
             className="rounded-full border border-slate-200 bg-slate-100 p-2">
             <LogOut size={20} color="#64748b" />
           </TouchableOpacity>
@@ -196,35 +205,38 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
             <Text className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-700">
               Select Question Limit
             </Text>
-            <View className="flex-row flex-wrap justify-between">
-              {[3, 5, 10, 15, 20, 25, 30, 50].map((num) => {
-                const availableCount =
-                  selectedExam?.questions?.[0]?.count || selectedExam?.questions?.length || 999;
-                const isAvailable = availableCount >= num;
-                return (
-                  <TouchableOpacity
-                    key={num}
-                    disabled={!isAvailable}
-                    onPress={() => startExam(num)}
-                    className={`mb-3 w-[23%] items-center rounded-xl border py-3 ${isAvailable ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-100 opacity-50'}`}>
-                    <Text
-                      className={`text-base font-bold ${isAvailable ? 'text-blue-700' : 'text-slate-400'}`}>
-                      {num}
-                    </Text>
-                    <Text
-                      className={`mt-1 text-[10px] uppercase tracking-wider ${isAvailable ? 'text-blue-500' : 'text-slate-400'}`}>
-                      Q's
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <View className="flex-row flex-wrap gap-2">
+              {(() => {
+                const availableCount = selectedExam?.questions?.[0]?.count || selectedExam?.questions?.length || null;
+                const totalQs = availableCount || 999;
+                
+                // Show standard options that are strictly LESS than the total to avoid duplicates
+                const validPresets = [3, 5, 10, 15, 20, 25, 30, 50].filter(n => n < totalQs);
 
-            <TouchableOpacity
-              onPress={() => startExam()}
-              className="mt-2 items-center rounded-xl bg-slate-800 py-4 shadow-md">
-              <Text className="text-lg font-bold text-white">Attempt Full Exam</Text>
-            </TouchableOpacity>
+                return (
+                  <>
+                    {validPresets.map((num) => (
+                      <TouchableOpacity
+                        key={`preset-${num}`}
+                        onPress={() => startExam(num)}
+                        className="w-[23%] items-center rounded-xl border border-blue-200 bg-blue-50 py-3">
+                        <Text className="text-base font-bold text-blue-700">{num}</Text>
+                        <Text className="mt-1 text-[10px] uppercase tracking-wider text-blue-500">Q's</Text>
+                      </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity
+                      onPress={() => startExam()}
+                      className="flex-1 min-w-[30%] items-center justify-center rounded-xl border-2 border-indigo-500 bg-indigo-50 py-3 shadow-sm">
+                      <Text className="text-base font-extrabold text-indigo-700">All Questions</Text>
+                      <Text className="mt-1 text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+                        {availableCount ? `${availableCount} Q's` : 'Max'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                );
+              })()}
+            </View>
           </View>
         </View>
       </Modal>

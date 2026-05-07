@@ -44,7 +44,7 @@ export default function LoginScreen({ navigation }: Props) {
           <View className="mb-4 rounded-full bg-exam-accent/30 p-4">
             <ShieldCheck size={48} color="#4338ca" />
           </View>
-          <Text className="text-3xl font-bold text-exam-dark">SecurePortal</Text>
+          <Text className="text-3xl font-bold text-exam-dark">Exam AI</Text>
           <Text className="mt-2 text-center text-slate-500">
             Sign in to access your proctored examinations.
           </Text>

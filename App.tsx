@@ -16,8 +16,9 @@ import ActiveExamScreen from './screens/ActiveExamScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import GradingScreen from './screens/GradingScreen';
 import ResultScreen from './screens/ResultScreen';
-
 import ContributeScreen from './screens/ContributeScreen';
+import InstructionsScreen from './screens/InstructionsScreen';
+import AdminDashboardScreen from './screens/AdminDashboardScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -25,7 +26,9 @@ export type RootStackParamList = {
   Signup: undefined;
   OTP: { email: string };
   ForgotPassword: undefined;
+  Instructions: undefined;
   Dashboard: undefined;
+  AdminDashboard: undefined;
   Profile: undefined;
   Contribute: undefined;
   ActiveExam: { examId: string; limit?: number };
@@ -42,7 +45,7 @@ const SplashScreen = () => (
 );
 
 export default function App() {
-  const { session, isLoading, initializeAuth } = useAuthStore();
+  const { session, userProfile, isLoading, initializeAuth } = useAuthStore();
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
@@ -56,16 +59,29 @@ export default function App() {
             <Stack.Screen name="Splash" component={SplashScreen} />
           ) : session ? (
             <Stack.Group>
-              <Stack.Screen name="Dashboard" component={DashboardScreen} />
-              <Stack.Screen name="Profile" component={ProfileScreen} />
-              <Stack.Screen name="Contribute" component={ContributeScreen} />
-              <Stack.Screen name="Grading" component={GradingScreen} />
-              <Stack.Screen name="Result" component={ResultScreen} />
-              <Stack.Screen
-                name="ActiveExam"
-                component={ActiveExamScreen}
-                options={{ gestureEnabled: false }}
-              />
+              {userProfile?.role === 'admin' ? (
+                // Admin Stack
+                <>
+                  <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+                  <Stack.Screen name="Profile" component={ProfileScreen} />
+                  <Stack.Screen name="Contribute" component={ContributeScreen} />
+                </>
+              ) : (
+                // Student Stack
+                <>
+                  <Stack.Screen name="Instructions" component={InstructionsScreen} />
+                  <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                  <Stack.Screen name="Profile" component={ProfileScreen} />
+                  <Stack.Screen name="Contribute" component={ContributeScreen} />
+                  <Stack.Screen name="Grading" component={GradingScreen} />
+                  <Stack.Screen name="Result" component={ResultScreen} />
+                  <Stack.Screen
+                    name="ActiveExam"
+                    component={ActiveExamScreen}
+                    options={{ gestureEnabled: false }}
+                  />
+                </>
+              )}
             </Stack.Group>
           ) : (
             <Stack.Group>

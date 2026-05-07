@@ -37,8 +37,16 @@ export default function ContributeScreen({ navigation }: Props) {
   const [existingQuestions, setExistingQuestions] = useState<any[]>([]);
   const [loadingManage, setLoadingManage] = useState(false);
 
-  const { session } = useAuthStore();
+  const { session, userProfile } = useAuthStore();
   const currentUserId = session?.user?.id;
+  const isAdmin = userProfile?.role === 'admin';
+
+  useEffect(() => {
+    if (!isAdmin && userProfile) {
+      Alert.alert('Access Denied', 'Only administrators can manage content.');
+      navigation.replace('Dashboard');
+    }
+  }, [isAdmin, userProfile]);
 
   // Fetch Exams when Category changes
   useEffect(() => {
@@ -113,7 +121,7 @@ export default function ContributeScreen({ navigation }: Props) {
     const inserts = questionsForm.map(q => {
       const payload: any = {
         exam_id: selectedExamId,
-        user_id: currentUserId,
+        // user_id: currentUserId, // TODO: Uncomment when 'user_id' column is added to Supabase 'questions' table
         text: q.text,
         options: q.options,
         correct_option_index: q.correctOption,
@@ -135,11 +143,7 @@ export default function ContributeScreen({ navigation }: Props) {
     }
   };
 
-  const deleteQuestion = async (id: string, authorId?: string) => {
-    if (authorId !== currentUserId) {
-        Alert.alert("Unauthorized", "You can only delete your posted questions.");
-        return;
-    }
+  const deleteQuestion = async (id: string) => {
     Alert.alert("Delete", "Are you sure you want to delete this question?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
@@ -325,9 +329,6 @@ export default function ContributeScreen({ navigation }: Props) {
                               </View>
                               <View className="flex-row justify-end space-x-3">
                                   <TouchableOpacity onPress={() => {
-                                      if (eq.user_id !== currentUserId) {
-                                          Alert.alert("Unauthorized", "You can only edit your posted questions.");
-                                      } else {
                                           setQuestionsForm([{
                                               id: eq.id,
                                               text: eq.text,
@@ -336,12 +337,11 @@ export default function ContributeScreen({ navigation }: Props) {
                                               explanation: eq.explanation || ''
                                           }]);
                                           setActiveTab('create');
-                                      }
                                   }} className="flex-row items-center border border-slate-200 px-3 py-2 rounded-lg bg-slate-50">
                                       <Edit2 size={16} color="#64748b" />
                                       <Text className="text-slate-600 font-bold text-xs ml-2">Edit</Text>
                                   </TouchableOpacity>
-                                  <TouchableOpacity onPress={() => deleteQuestion(eq.id, eq.user_id)} className="flex-row items-center border border-red-200 px-3 py-2 rounded-lg bg-red-50">
+                                  <TouchableOpacity onPress={() => deleteQuestion(eq.id)} className="flex-row items-center border border-red-200 px-3 py-2 rounded-lg bg-red-50">
                                       <Trash2 size={16} color="#ef4444" />
                                       <Text className="text-red-600 font-bold text-xs ml-2">Delete</Text>
                                   </TouchableOpacity>
