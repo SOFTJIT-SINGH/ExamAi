@@ -238,7 +238,7 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
         <View className="flex-1 px-6 pt-8">
           <View className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <Text className="text-xl font-bold leading-relaxed text-slate-800">
-              {currentQuestion.text}
+              {currentQuestion.question_text}
             </Text>
           </View>
 

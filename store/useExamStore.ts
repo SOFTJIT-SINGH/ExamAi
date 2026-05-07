@@ -97,11 +97,7 @@ export const useExamStore = create<ExamState>((set, get) => ({
           user_id: user.id,
           exam_id: examId,
           score: scorePercentage,
-          total_questions: questions.length,
-          passed: passed,
           status: status,
-          attempted_questions: attemptedCount,
-          answers: answers, // <-- SAVES ANSWERS FOR STUDY MODE
         });
 
         if (error) Alert.alert('Database Error', `Failed to save exam: ${error.message}`);

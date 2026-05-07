@@ -19,10 +19,9 @@ import { useAuthStore } from '../store/useAuthStore';
 
 type DashboardProps = { navigation: NativeStackNavigationProp<RootStackParamList, 'Dashboard'> };
 
-const CATEGORIES = ['All', 'Programming', 'Web Development', 'Designing', 'General'];
-
 export default function DashboardScreen({ navigation }: DashboardProps) {
   const [exams, setExams] = useState<any[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
 
@@ -35,10 +34,16 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
 
   useFocusEffect(
     useCallback(() => {
-      const fetchExams = async () => {
+      const fetchData = async () => {
         setLoading(true);
 
-        // 1. Try to fetch exams WITH the question count
+        // 1. Fetch Categories
+        const { data: catData } = await supabase.from('categories').select('name').order('name');
+        if (catData) {
+          setCategories(['All', ...catData.map(c => c.name)]);
+        }
+
+        // 2. Fetch exams WITH the question count
         const { data, error } = await supabase
           .from('exams')
           .select('*, questions(count)')
@@ -46,20 +51,15 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
 
         if (error) {
           console.error('Dashboard Fetch Error:', error);
-          // If the relation fails, fallback to fetching JUST the exams
           const fallback = await supabase.from('exams').select('*').order('title');
-          if (fallback.error) {
-            Alert.alert('Database Error', fallback.error.message);
-          } else if (fallback.data) {
-            setExams(fallback.data);
-          }
+          if (fallback.data) setExams(fallback.data);
         } else if (data) {
           setExams(data);
         }
 
         setLoading(false);
       };
-      fetchExams();
+      fetchData();
     }, [])
   );
 
@@ -122,7 +122,7 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20 }}>
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <TouchableOpacity
               key={cat}
               onPress={() => setActiveCategory(cat)}

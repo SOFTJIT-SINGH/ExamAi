@@ -9,8 +9,6 @@ import { useAuthStore } from '../store/useAuthStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Contribute'>;
 
-const CATEGORIES = ['Programming', 'Web Development', 'Designing', 'General'];
-
 type QForm = {
   id?: string;
   text: string;
@@ -23,7 +21,8 @@ export default function ContributeScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   
   // Category & Exam Selection
-  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState('');
   const [availableExams, setAvailableExams] = useState<any[]>([]);
   const [selectedExamId, setSelectedExamId] = useState('');
   
@@ -38,8 +37,20 @@ export default function ContributeScreen({ navigation }: Props) {
   const [loadingManage, setLoadingManage] = useState(false);
 
   const { session, userProfile } = useAuthStore();
-  const currentUserId = session?.user?.id;
   const isAdmin = userProfile?.role === 'admin';
+  const currentUserId = session?.user?.id;
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('name').order('name');
+      if (data && data.length > 0) {
+        const catNames = data.map(c => c.name);
+        setCategories(catNames);
+        setActiveCategory(catNames[0]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     if (!isAdmin && userProfile) {
@@ -50,7 +61,9 @@ export default function ContributeScreen({ navigation }: Props) {
 
   // Fetch Exams when Category changes
   useEffect(() => {
-    fetchExamsByCategory();
+    if (activeCategory) {
+      fetchExamsByCategory();
+    }
   }, [activeCategory]);
 
   const fetchExamsByCategory = async () => {
@@ -121,8 +134,7 @@ export default function ContributeScreen({ navigation }: Props) {
     const inserts = questionsForm.map(q => {
       const payload: any = {
         exam_id: selectedExamId,
-        // user_id: currentUserId, // TODO: Uncomment when 'user_id' column is added to Supabase 'questions' table
-        text: q.text,
+        question_text: q.text,
         options: q.options,
         correct_option_index: q.correctOption,
         explanation: q.explanation || null,
@@ -131,15 +143,24 @@ export default function ContributeScreen({ navigation }: Props) {
       return payload;
     });
 
-    const { error } = await supabase.from('questions').upsert(inserts);
-    setLoading(false);
+    console.log('--- Saving Questions ---');
+    console.log('Payload:', JSON.stringify(inserts, null, 2));
 
-    if (error) {
-      Alert.alert('Database Error', 'Failed to save questions: ' + error.message);
-    } else {
-      Alert.alert('Success', `${questionsForm.length} questions submitted successfully!`);
-      // Reset form
-      setQuestionsForm([{ text: '', options: ['', '', '', ''], correctOption: 0, explanation: '' }]);
+    try {
+      const { error } = await supabase.from('questions').upsert(inserts);
+      setLoading(false);
+
+      if (error) {
+        console.error('Save Questions Error:', error);
+        Alert.alert('Database Error', `Code: ${error.code}\nMessage: ${error.message}`);
+      } else {
+        Alert.alert('Success', `${questionsForm.length} questions submitted successfully!`);
+        setQuestionsForm([{ text: '', options: ['', '', '', ''], correctOption: 0, explanation: '' }]);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      console.error('Catch Error:', err);
+      Alert.alert('System Error', err.message || 'An unexpected error occurred');
     }
   };
 
@@ -198,7 +219,7 @@ export default function ContributeScreen({ navigation }: Props) {
           <View className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
             <Text className="font-bold text-slate-700 mb-3 text-sm tracking-wider uppercase">1. Select Subject Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   onPress={() => setActiveCategory(cat)}
@@ -319,7 +340,7 @@ export default function ContributeScreen({ navigation }: Props) {
                       existingQuestions.map((eq, idx) => (
                           <View key={`eq-${eq.id}`} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4">
                               <Text className="text-slate-400 font-bold text-xs mb-2 uppercase">Q {idx + 1}</Text>
-                              <Text className="text-slate-800 font-bold text-base mb-3">{eq.text}</Text>
+                              <Text className="text-slate-800 font-bold text-base mb-3">{eq.question_text}</Text>
                               <View className="bg-slate-50 p-3 rounded-lg mb-4 border border-slate-100">
                                   {eq.options.map((o: string, i: number) => (
                                       <Text key={i} className={`text-sm mb-1 ${eq.correct_option_index === i ? 'text-green-600 font-bold' : 'text-slate-500'}`}>
@@ -331,7 +352,7 @@ export default function ContributeScreen({ navigation }: Props) {
                                   <TouchableOpacity onPress={() => {
                                           setQuestionsForm([{
                                               id: eq.id,
-                                              text: eq.text,
+                                              text: eq.question_text,
                                               options: [...eq.options],
                                               correctOption: eq.correct_option_index,
                                               explanation: eq.explanation || ''
