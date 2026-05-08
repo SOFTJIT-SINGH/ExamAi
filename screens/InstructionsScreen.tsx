@@ -39,12 +39,12 @@ export default function InstructionsScreen({ navigation }: Props) {
       icon: <BarChart3 size={28} color="#8b5cf6" />,
       color: 'bg-violet-50 border-violet-100',
     },
-    {
-      title: 'Contribute Questions',
-      description: 'Help the community grow! Create and manage your own questions in the Contribute HQ.',
-      icon: <PenTool size={28} color="#f59e0b" />,
-      color: 'bg-amber-50 border-amber-100',
-    },
+    // {
+    //   title: 'Contribute Questions',
+    //   description: 'Help the community grow! Create and manage your own questions in the Contribute HQ.',
+    //   icon: <PenTool size={28} color="#f59e0b" />,
+    //   color: 'bg-amber-50 border-amber-100',
+    // },
   ];
 
 

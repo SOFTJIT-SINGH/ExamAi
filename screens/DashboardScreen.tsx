@@ -178,21 +178,22 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
           renderItem={({ item }) => {
             // Safe fallback if questions array is missing or empty
             const questionCount =
-              item.questions?.[0]?.count || item.questions?.length || 'Multiple';
+              item.questions?.[0]?.count ?? item.questions?.length ?? 0;
+            const hasQuestions = questionCount > 0;
             return (
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => openPreflight(item)}
-                className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                className={`mb-4 rounded-2xl border bg-white p-5 shadow-sm ${hasQuestions ? 'border-slate-200' : 'border-amber-100 bg-amber-50/30'}`}>
                 <View className="mb-3 flex-row items-start justify-between">
                   <View className="flex-1 flex-row items-center">
-                    <View className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-                      <FileText size={24} color="#3b82f6" />
+                    <View className={`rounded-xl border p-3 ${hasQuestions ? 'border-blue-100 bg-blue-50' : 'border-amber-200 bg-amber-100'}`}>
+                      <FileText size={24} color={hasQuestions ? '#3b82f6' : '#d97706'} />
                     </View>
                     <View className="ml-4 flex-1">
-                      <Text className="text-lg font-bold text-slate-800">{item.title}</Text>
-                      <Text className="mt-1 text-xs font-medium text-slate-500">
-                        {questionCount} Questions Available
+                      <Text className={`text-lg font-bold ${hasQuestions ? 'text-slate-800' : 'text-slate-600'}`}>{item.title}</Text>
+                      <Text className={`mt-1 text-xs font-medium ${hasQuestions ? 'text-slate-500' : 'text-amber-600'}`}>
+                        {hasQuestions ? `${questionCount} Questions Available` : 'No Questions Available'}
                       </Text>
                     </View>
                   </View>
@@ -200,9 +201,11 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
                 <Text className="mb-5 text-sm leading-relaxed text-slate-600">
                   {item.description}
                 </Text>
-                <View className="flex-row items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-3">
-                  <Text className="mr-2 text-sm font-bold text-slate-700">Configure & Start</Text>
-                  <ChevronRight size={16} color="#3b82f6" />
+                <View className={`flex-row items-center justify-center rounded-xl border py-3 ${hasQuestions ? 'border-slate-200 bg-slate-50' : 'border-slate-100 bg-slate-100 opacity-50'}`}>
+                  <Text className="mr-2 text-sm font-bold text-slate-700">
+                    {hasQuestions ? 'Configure & Start' : 'Coming Soon'}
+                  </Text>
+                  {hasQuestions && <ChevronRight size={16} color="#3b82f6" />}
                 </View>
               </TouchableOpacity>
             );
@@ -229,16 +232,28 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
             <Text className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-700">
               Select Question Limit
             </Text>
-            <View className="flex-row flex-wrap gap-2">
               {(() => {
-                const availableCount = selectedExam?.questions?.[0]?.count || selectedExam?.questions?.length || null;
-                const totalQs = availableCount || 999;
+                const questionCount = selectedExam?.questions?.[0]?.count ?? selectedExam?.questions?.length ?? 0;
                 
+                if (questionCount === 0) {
+                  return (
+                    <View className="items-center justify-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <FileText size={48} color="#94a3b8" />
+                      <Text className="mt-4 text-center text-slate-500 font-bold">
+                        No questions found for this exam.
+                      </Text>
+                      <Text className="mt-1 text-center text-slate-400 text-xs px-10">
+                        Please notify your administrator to add questions to this assessment.
+                      </Text>
+                    </View>
+                  );
+                }
+
                 // Show standard options that are strictly LESS than the total to avoid duplicates
-                const validPresets = [3, 5, 10, 15, 20, 25, 30, 50].filter(n => n < totalQs);
+                const validPresets = [3, 5, 10, 15, 20, 25, 30, 50].filter(n => n < questionCount);
 
                 return (
-                  <>
+                  <View className="flex-row flex-wrap gap-2">
                     {validPresets.map((num) => (
                       <TouchableOpacity
                         key={`preset-${num}`}
@@ -254,13 +269,12 @@ export default function DashboardScreen({ navigation }: DashboardProps) {
                       className="flex-1 min-w-[30%] items-center justify-center rounded-xl border-2 border-indigo-500 bg-indigo-50 py-3 shadow-sm">
                       <Text className="text-base font-extrabold text-indigo-700">All Questions</Text>
                       <Text className="mt-1 text-[10px] font-bold uppercase tracking-wider text-indigo-500">
-                        {availableCount ? `${availableCount} Q's` : 'Max'}
+                        {questionCount} Q's
                       </Text>
                     </TouchableOpacity>
-                  </>
+                  </View>
                 );
               })()}
-            </View>
           </View>
         </View>
       </Modal>

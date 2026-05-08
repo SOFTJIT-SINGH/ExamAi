@@ -14,7 +14,7 @@ export const useExamStore = create<ExamState>((set, get) => ({
 
   // Replace the fetchExamData function inside useExamStore.ts with this:
   fetchExamData: async (examId: string, limit?: number) => {
-    set({ isLoading: true, isSubmitted: false, answers: {}, currentQuestionIndex: 0 });
+    set({ isLoading: true, isSubmitted: false, answers: {}, currentQuestionIndex: 0, questions: [] });
     try {
       const { data, error } = await supabase.from('questions').select('*').eq('exam_id', examId);
       if (error) throw error;

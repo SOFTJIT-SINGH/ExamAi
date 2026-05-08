@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, AppState, AppStateStatus } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, AppState, AppStateStatus, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {
@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Circle,
   ShieldAlert,
+  FileText,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -191,10 +192,43 @@ export default function ActiveExamScreen({ route, navigation }: Props) {
     );
   }
 
-  if (isLoading || !currentQuestion) {
+  if (isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-slate-50">
-        <Text className="text-lg font-bold text-blue-600">Loading Exam Data...</Text>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text className="text-lg font-bold text-blue-600 mt-4">Loading Exam Data...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-slate-50 px-8">
+        <View className="items-center justify-center rounded-full bg-slate-100 p-8">
+          <FileText size={80} color="#94a3b8" />
+        </View>
+        <Text className="mt-8 text-center text-3xl font-extrabold text-slate-800">
+          No Questions Found
+        </Text>
+        <Text className="mb-10 mt-4 text-center text-lg leading-relaxed text-slate-500">
+          This assessment doesn't have any questions yet. Please check back later or contact your instructor.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.replace('Dashboard')}
+          activeOpacity={0.8}
+          className="w-full flex-row items-center justify-center rounded-2xl bg-blue-600 py-4 shadow-lg shadow-blue-500/30">
+          <ChevronLeft size={20} color="white" />
+          <Text className="ml-2 text-lg font-bold text-white">Return to Dashboard</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-slate-50">
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text className="text-lg font-bold text-blue-600 mt-4">Preparing Question...</Text>
       </SafeAreaView>
     );
   }
