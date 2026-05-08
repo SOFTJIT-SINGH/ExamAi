@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -403,10 +404,14 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
                 <View className="p-5">
                   <View className="flex-row items-center justify-between mb-4">
                     <View className="flex-row items-center flex-1">
-                      <View className="bg-slate-100 w-14 h-14 rounded-full items-center justify-center mr-4">
-                        <Text className="text-slate-600 font-bold text-xl">
-                          {item.first_name?.[0]}{item.last_name?.[0] || item.first_name?.[1]}
-                        </Text>
+                      <View className="bg-slate-100 w-14 h-14 rounded-full items-center justify-center mr-4 overflow-hidden border border-slate-200">
+                        {item.avatar_url ? (
+                          <Image source={{ uri: item.avatar_url }} className="h-full w-full" />
+                        ) : (
+                          <Text className="text-slate-600 font-bold text-xl">
+                            {item.first_name?.[0]}{item.last_name?.[0] || item.first_name?.[1]}
+                          </Text>
+                        )}
                       </View>
                       <View className="flex-1">
                         <Text className="font-bold text-slate-800 text-lg" numberOfLines={1}>

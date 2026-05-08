@@ -15,16 +15,27 @@ export const useAuthStore = create<AuthState>((set) => ({
     
     let userProfile = null;
     if (session?.user) {
+      // Try to fetch with phone and avatar_url first
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, role')
+        .select('id, first_name, last_name, role, phone, avatar_url')
         .eq('id', session.user.id)
         .maybeSingle();
       
-      if (error) console.error('Profile Fetch Error:', error);
-      userProfile = data;
-      console.log('--- Auth Initialization ---');
-      console.log('FULL PROFILE DATA:', JSON.stringify(userProfile, null, 2));
+      if (error) {
+        console.warn('Profile Fetch (with new columns) failed, trying basic selection:', error.message);
+        // Fallback: Try without new columns
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        
+        if (fallbackError) console.error('Final Profile Fetch Error:', fallbackError);
+        userProfile = fallbackData;
+      } else {
+        userProfile = data;
+      }
     }
 
     set({ session, userProfile, isLoading: false });
@@ -34,14 +45,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (session?.user) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, role')
+          .select('id, first_name, last_name, role, phone, avatar_url')
           .eq('id', session.user.id)
           .maybeSingle();
         
-        if (error) console.error('Auth Change Profile Error:', error);
-        profile = data;
-        console.log('--- Auth State Change ---');
-        console.log('FULL PROFILE DATA:', JSON.stringify(profile, null, 2));
+        if (error) {
+          const { data: fallback } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          profile = fallback;
+        } else {
+          profile = data;
+        }
       }
       set({ session, userProfile: profile, isLoading: false });
     });
@@ -79,26 +96,98 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ session: null, userProfile: null, isLoading: false });
   },
 
-  updateUserProfile: async (firstName: string, lastName: string, phone: string = '') => {
+  uploadAvatar: async (uri: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileExt = uri.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri,
+        name: fileName,
+        type: `image/${fileExt}`,
+      } as any);
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, formData);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      throw error;
+    }
+  },
+
+  updateUserProfile: async (firstName: string, lastName: string, phone: string = '', avatarUrl?: string) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) throw new Error('Not authenticated');
 
-    // Sync metadata (Relies on Database Webhooks to copy to Profiles table)
-    const { data, error: authError } = await supabase.auth.updateUser({
-      data: { first_name: firstName, last_name: lastName, phone: phone },
-    });
+    console.log('--- Profile Update: Starting ---');
 
-    if (authError) {
-      Alert.alert('Auth Sync Error', authError.message);
-    } else {
-      if (data.user) {
-        set((state) => ({
-          session: state.session ? { ...state.session, user: data.user! } : null,
-        }));
-      }
-      Alert.alert('Success', 'Profile updated successfully.');
+    // We skip supabase.auth.updateUser here because it triggers onAuthStateChange 
+    // which creates a race condition/deadlock with the profiles table update.
+    // The app relies on the `profiles` table for displaying user data anyway.
+
+    // 2. Directly update the profiles table (Aligned with SQL Schema)
+    console.log('--- DB Update: Starting ---');
+    const updateData: any = {
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone,
+      email: user.email, // Syncing email as per your schema
+      updated_at: new Date().toISOString(),
+    };
+    if (avatarUrl) updateData.avatar_url = avatarUrl;
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.error('--- DB Update: ERROR ---', profileError);
+      throw new Error(`Database Error: ${profileError.message}`);
+    }
+
+    console.log('--- DB Update: SUCCESS ---');
+
+    // 3. Keep local state in sync
+    if (user) {
+      set((state) => ({
+        session: state.session ? { ...state.session, user: user } : null,
+        userProfile: state.userProfile 
+          ? { 
+              ...state.userProfile, 
+              first_name: firstName, 
+              last_name: lastName, 
+              phone: phone,
+              email: user.email,
+              avatar_url: avatarUrl || state.userProfile.avatar_url
+            }
+          : {
+              id: user.id,
+              first_name: firstName,
+              last_name: lastName,
+              phone: phone,
+              email: user.email,
+              avatar_url: avatarUrl || '',
+              role: 'student'
+            },
+      }));
+      console.log('--- Store Sync: SUCCESS ---');
     }
   },
 }));

@@ -8,9 +8,10 @@ import {
   Alert,
   TextInput,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, User, Award, Target, BookOpen, Edit2, Check } from 'lucide-react-native';
+import { ChevronLeft, User, Award, Target, BookOpen, Edit2 } from 'lucide-react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
@@ -26,52 +27,64 @@ export default function ProfileScreen({ navigation }: Props) {
   const [history, setHistory] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Edit Mode State
-  const [isEditing, setIsEditing] = useState(false);
-  const [firstName, setFirstName] = useState(session?.user?.user_metadata?.first_name || '');
-  const [lastName, setLastName] = useState(session?.user?.user_metadata?.last_name || '');
-  const [phone, setPhone] = useState(session?.user?.user_metadata?.phone || ''); // NEW PHONE STATE
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const fetchProfileData = async () => {
     if (!session?.user) return;
-    setLoading(true);
+    
+    // Only show full screen loader if we don't have basic info yet
+    const shouldShowLoader = !firstName || !lastName;
+    if (shouldShowLoader) setLoading(true);
 
-    // 1. Fetch Latest Profile Info
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
+    try {
+      // 1. Fetch Latest Profile Info
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-    if (profileData) {
-      setFirstName(profileData.first_name || '');
-      setLastName(profileData.last_name || '');
-      setPhone(profileData.phone || '');
+      if (profileError) throw profileError;
+
+      if (profileData) {
+        setFirstName(profileData.first_name || '');
+        setLastName(profileData.last_name || '');
+        setPhone(profileData.phone || '');
+        setAvatarUrl(profileData.avatar_url || null);
+      }
+
+      // 2. Fetch Exam Results
+      const { data, error: examError } = await supabase
+        .from('exam_results')
+        .select(`*, exams(title)`)
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (examError) throw examError;
+
+      if (data) {
+        const completedExams = data.filter((e) => e.status === 'completed' || !e.status);
+        const totalScore = completedExams.reduce(
+          (acc, curr) => acc + (Number(curr.score) || 0),
+          0
+        );
+        setStats({
+          totalAttempted: data.length,
+          passed: 0, 
+          failed: 0,
+          averageScore:
+            completedExams.length > 0 ? Math.round(totalScore / completedExams.length) : 0,
+        });
+        setHistory(data);
+      }
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    // 2. Fetch Exam Results
-    const { data } = await supabase
-      .from('exam_results')
-      .select(`*, exams(title)`)
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      const completedExams = data.filter((e) => e.status === 'completed' || !e.status);
-      const totalScore = completedExams.reduce(
-        (acc, curr) => acc + (Number(curr.score) || 0),
-        0
-      );
-      setStats({
-        totalAttempted: data.length,
-        passed: 0, 
-        failed: 0,
-        averageScore:
-          completedExams.length > 0 ? Math.round(totalScore / completedExams.length) : 0,
-      });
-      setHistory(data);
-    }
-    setLoading(false);
   };
 
   const onRefresh = async () => {
@@ -85,11 +98,6 @@ export default function ProfileScreen({ navigation }: Props) {
       fetchProfileData();
     }, [session])
   );
-
-  const handleSaveProfile = async () => {
-    setIsEditing(false);
-    await updateUserProfile(firstName, lastName, phone); // NOW PASSES PHONE
-  };
 
   const handleReviewClick = (result: any) => {
     if (result.status === 'completed' && result.answers) {
@@ -122,50 +130,28 @@ export default function ProfileScreen({ navigation }: Props) {
       >
         <View className="relative mb-6 items-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <TouchableOpacity
-            onPress={() => (isEditing ? handleSaveProfile() : setIsEditing(true))}
+            onPress={() => navigation.navigate('EditProfile')}
             className="absolute right-4 top-4 rounded-full border border-slate-200 bg-slate-50 p-2">
-            {isEditing ? <Check size={18} color="#10b981" /> : <Edit2 size={18} color="#64748b" />}
+            <Edit2 size={18} color="#64748b" />
           </TouchableOpacity>
 
-          <View className="mb-4 rounded-full border border-blue-100 bg-blue-50 p-4">
-            <User size={40} color="#3b82f6" />
+          <View className="mb-4 h-24 w-24 items-center justify-center rounded-full border-4 border-blue-50 bg-blue-50 overflow-hidden shadow-sm">
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} className="h-full w-full" />
+            ) : (
+              <User size={40} color="#3b82f6" />
+            )}
           </View>
 
-          {isEditing ? (
-            <View className="mt-2 w-full space-y-3">
-              <TextInput
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First Name"
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center font-bold text-slate-800"
-              />
-              <TextInput
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last Name"
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center font-bold text-slate-800"
-              />
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Phone Number"
-                keyboardType="phone-pad"
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center font-bold text-slate-800"
-              />
-            </View>
-          ) : (
-            <>
-              <Text className="text-xl font-bold text-slate-800">
-                {firstName} {lastName}
-              </Text>
-              <Text className="mt-1 text-sm font-medium text-slate-500">
-                {session?.user?.email}
-              </Text>
-              {phone ? (
-                <Text className="mt-1 text-xs font-medium text-slate-400">{phone}</Text>
-              ) : null}
-            </>
-          )}
+          <Text className="text-xl font-bold text-slate-800">
+            {firstName} {lastName}
+          </Text>
+          <Text className="mt-1 text-sm font-medium text-slate-500">
+            {session?.user?.email}
+          </Text>
+          {phone ? (
+            <Text className="mt-1 text-xs font-medium text-slate-400">{phone}</Text>
+          ) : null}
         </View>
 
         <Text className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">

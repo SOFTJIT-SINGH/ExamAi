@@ -20,6 +20,8 @@ import ContributeScreen from './screens/ContributeScreen';
 import InstructionsScreen from './screens/InstructionsScreen';
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 
+import EditProfileScreen from './screens/EditProfileScreen';
+
 export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
@@ -30,6 +32,7 @@ export type RootStackParamList = {
   Dashboard: undefined;
   AdminDashboard: undefined;
   Profile: undefined;
+  EditProfile: undefined;
   Contribute: undefined;
   ActiveExam: { examId: string; limit?: number };
   Grading: { examId: string };
@@ -64,6 +67,7 @@ export default function App() {
                 <>
                   <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
+                  <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                   <Stack.Screen name="Contribute" component={ContributeScreen} />
                 </>
               ) : (
@@ -72,6 +76,7 @@ export default function App() {
                   <Stack.Screen name="Instructions" component={InstructionsScreen} />
                   <Stack.Screen name="Dashboard" component={DashboardScreen} />
                   <Stack.Screen name="Profile" component={ProfileScreen} />
+                  <Stack.Screen name="EditProfile" component={EditProfileScreen} />
                   <Stack.Screen name="Contribute" component={ContributeScreen} />
                   <Stack.Screen name="Grading" component={GradingScreen} />
                   <Stack.Screen name="Result" component={ResultScreen} />
