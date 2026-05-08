@@ -19,10 +19,14 @@ import {
   LayoutDashboard,
   ShieldCheck,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   List,
   Search,
   FileText,
-  PlusCircle
+  PlusCircle,
+  Award,
+  Clock
 } from 'lucide-react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -42,6 +46,7 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
   const [newCategory, setNewCategory] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
   
   // New Exam Modal State
   const [showExamModal, setShowExamModal] = useState(false);
@@ -80,24 +85,48 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
       if (activeTab === 'students') {
         const { data: studentsData, error: listErr } = await supabase
           .from('profiles')
-          .select('*, exam_results(score, status)')
+          .select('*, exam_results(id, exam_id, score, status, created_at)')
           .eq('role', 'student')
           .order('first_name');
         
         if (listErr) console.error('Student List Fetch Error:', listErr);
+
+        // Collect all unique exam_ids to fetch their titles
+        const allExamIds = new Set<string>();
+        (studentsData || []).forEach((s: any) => {
+          (s.exam_results || []).forEach((r: any) => { if (r.exam_id) allExamIds.add(r.exam_id); });
+        });
+
+        let examTitleMap: Record<string, string> = {};
+        if (allExamIds.size > 0) {
+          const { data: examsLookup } = await supabase
+            .from('exams')
+            .select('id, title')
+            .in('id', Array.from(allExamIds));
+          (examsLookup || []).forEach((e: any) => { examTitleMap[e.id] = e.title; });
+        }
         
-        // Calculate average scores for each student
+        // Calculate average scores and attach detailed results for each student
         const studentsWithScores = (studentsData || []).map(student => {
           const results = student.exam_results || [];
           const completedResults = results.filter((r: any) => r.status === 'completed');
           const avgScore = completedResults.length > 0 
             ? Math.round(completedResults.reduce((acc: number, r: any) => acc + r.score, 0) / completedResults.length)
             : 0;
+
+          // Attach exam title to each result
+          const detailedResults = results
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map((r: any) => ({
+              ...r,
+              examTitle: examTitleMap[r.exam_id] || 'Unknown Exam',
+            }));
           
           return {
             ...student,
             avgScore,
-            totalExams: completedResults.length
+            totalExams: completedResults.length,
+            detailedResults,
           };
         });
 
@@ -338,6 +367,13 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
     </ScrollView>
   );
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch { return ''; }
+  };
+
   const renderStudents = () => (
     <View className="flex-1">
       {loading ? (
@@ -359,52 +395,119 @@ export default function AdminDashboardScreen({ navigation }: AdminDashboardProps
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />
           }
-          renderItem={({ item }) => (
-            <View className="bg-white border border-slate-200 p-5 rounded-3xl mb-4 shadow-sm">
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-row items-center flex-1">
-                  <View className="bg-slate-100 w-14 h-14 rounded-full items-center justify-center mr-4">
-                    <Text className="text-slate-600 font-bold text-xl">
-                      {item.first_name?.[0]}{item.last_name?.[0] || item.first_name?.[1]}
-                    </Text>
+          renderItem={({ item }) => {
+            const isExpanded = expandedStudent === item.id;
+            return (
+              <View className="bg-white border border-slate-200 rounded-3xl mb-4 shadow-sm overflow-hidden">
+                {/* Student Header */}
+                <View className="p-5">
+                  <View className="flex-row items-center justify-between mb-4">
+                    <View className="flex-row items-center flex-1">
+                      <View className="bg-slate-100 w-14 h-14 rounded-full items-center justify-center mr-4">
+                        <Text className="text-slate-600 font-bold text-xl">
+                          {item.first_name?.[0]}{item.last_name?.[0] || item.first_name?.[1]}
+                        </Text>
+                      </View>
+                      <View className="flex-1">
+                        <Text className="font-bold text-slate-800 text-lg" numberOfLines={1}>
+                          {item.first_name} {item.last_name}
+                        </Text>
+                        <Text className="text-slate-400 text-xs font-medium" numberOfLines={1}>
+                          {item.email || 'No email associated'}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => removeStudent(item.id, `${item.first_name} ${item.last_name}`)}
+                      className="p-3 bg-red-50 rounded-2xl"
+                    >
+                      <Trash2 size={18} color="#ef4444" />
+                    </TouchableOpacity>
                   </View>
-                  <View className="flex-1">
-                    <Text className="font-bold text-slate-800 text-lg" numberOfLines={1}>
-                      {item.first_name} {item.last_name}
-                    </Text>
-                    <Text className="text-slate-400 text-xs font-medium" numberOfLines={1}>
-                      {item.email || 'No email associated'}
-                    </Text>
-                  </View>
-                </View>
-                <TouchableOpacity 
-                  onPress={() => removeStudent(item.id, `${item.first_name} ${item.last_name}`)}
-                  className="p-3 bg-red-50 rounded-2xl"
-                >
-                  <Trash2 size={18} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
 
-              <View className="flex-row items-center justify-between bg-slate-50 p-4 rounded-2xl">
-                <View>
-                  <Text className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Performance</Text>
-                  <View className="flex-row items-baseline">
-                    <Text className={`text-xl font-black ${item.avgScore >= 60 ? 'text-green-600' : item.avgScore > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                      {item.avgScore}%
-                    </Text>
-                    <Text className="text-slate-400 text-xs ml-1 font-bold italic">Avg. Score</Text>
+                  <View className="flex-row items-center justify-between bg-slate-50 p-4 rounded-2xl">
+                    <View>
+                      <Text className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Performance</Text>
+                      <View className="flex-row items-baseline">
+                        <Text className={`text-xl font-black ${item.avgScore >= 60 ? 'text-green-600' : item.avgScore > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {item.avgScore}%
+                        </Text>
+                        <Text className="text-slate-400 text-xs ml-1 font-bold italic">Avg. Score</Text>
+                      </View>
+                    </View>
+                    
+                    <View className="h-8 w-[1px] bg-slate-200" />
+
+                    <View className="items-end">
+                      <Text className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Activities</Text>
+                      <Text className="text-slate-700 font-bold">{item.totalExams} Exams Taken</Text>
+                    </View>
                   </View>
                 </View>
-                
-                <View className="h-8 w-[1px] bg-slate-200" />
 
-                <View className="items-end">
-                  <Text className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Activities</Text>
-                  <Text className="text-slate-700 font-bold">{item.totalExams} Exams Taken</Text>
-                </View>
+                {/* Expand/Collapse Button */}
+                {item.detailedResults && item.detailedResults.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setExpandedStudent(isExpanded ? null : item.id)}
+                    className={`flex-row items-center justify-center py-3 border-t border-slate-100 ${isExpanded ? 'bg-blue-50' : 'bg-slate-50'}`}
+                  >
+                    <Award size={14} color={isExpanded ? '#3b82f6' : '#94a3b8'} />
+                    <Text className={`ml-2 text-xs font-bold ${isExpanded ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {isExpanded ? 'Hide Test Details' : `View ${item.detailedResults.length} Test Results`}
+                    </Text>
+                    {isExpanded ? <ChevronUp size={14} color="#3b82f6" style={{ marginLeft: 4 }} /> : <ChevronDown size={14} color="#94a3b8" style={{ marginLeft: 4 }} />}
+                  </TouchableOpacity>
+                )}
+
+                {/* Expanded Test Results */}
+                {isExpanded && item.detailedResults && (
+                  <View className="px-5 pb-5 bg-slate-50">
+                    {item.detailedResults.map((result: any, idx: number) => {
+                      const statusColor = result.status === 'completed'
+                        ? (result.score >= 60 ? '#16a34a' : '#f59e0b')
+                        : result.status === 'terminated' ? '#ef4444' : '#94a3b8';
+                      const statusBg = result.status === 'completed'
+                        ? (result.score >= 60 ? '#f0fdf4' : '#fffbeb')
+                        : result.status === 'terminated' ? '#fef2f2' : '#f8fafc';
+                      const statusLabel = result.status === 'completed' ? 'Completed'
+                        : result.status === 'terminated' ? 'Terminated' : 'Cancelled';
+
+                      return (
+                        <View
+                          key={result.id || idx}
+                          className="bg-white border border-slate-200 rounded-2xl p-4 mt-3"
+                        >
+                          <View className="flex-row items-center justify-between">
+                            <View className="flex-1 mr-3">
+                              <Text className="font-bold text-slate-800 text-sm" numberOfLines={1}>
+                                {result.examTitle}
+                              </Text>
+                              <View className="flex-row items-center mt-1">
+                                <Clock size={11} color="#94a3b8" />
+                                <Text className="text-slate-400 text-[11px] ml-1">
+                                  {result.created_at ? formatDate(result.created_at) : 'N/A'}
+                                </Text>
+                              </View>
+                            </View>
+                            <View className="items-end">
+                              <View style={{ backgroundColor: statusBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                                <Text style={{ color: statusColor, fontWeight: 'bold', fontSize: 16 }}>
+                                  {result.score}%
+                                </Text>
+                              </View>
+                              <Text style={{ color: statusColor, fontSize: 10, fontWeight: '600', marginTop: 2 }}>
+                                {statusLabel}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </View>
