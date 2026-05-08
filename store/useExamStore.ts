@@ -93,6 +93,23 @@ export const useExamStore = create<ExamState>((set, get) => ({
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        // Ensure profile row exists before inserting exam result (FK constraint requires it)
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!existingProfile) {
+          const meta = user.user_metadata || {};
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            first_name: meta.first_name || '',
+            last_name: meta.last_name || '',
+            role: 'student',
+          });
+        }
+
         const { error } = await supabase.from('exam_results').insert({
           user_id: user.id,
           exam_id: examId,
